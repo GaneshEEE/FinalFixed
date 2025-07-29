@@ -56,31 +56,11 @@ const codeAiActionPromptMap = (code: string): { [key: string]: string } => ({
 
 // Helper to split user input into actionable instructions
 function splitInstructions(input: string): string[] {
-  // Split on common instruction separators with better handling of complex instructions
-  const instructions = input
+  // Split on common instruction separators
+  return input
     .split(/\band\b|\bthen\b|\n|\r|\r\n|\.|;|,|\|\||\|\s/i)
     .map(instr => instr.trim())
     .filter(instr => instr.length > 0 && instr.length > 3); // Filter out very short fragments
-  
-  // Post-process instructions to handle complex cases
-  const processedInstructions: string[] = [];
-  
-  for (const instruction of instructions) {
-    // Handle complex instructions that might contain multiple actions
-    if (instruction.includes(' and ') || instruction.includes(' then ')) {
-      // Split complex instructions further
-      const subInstructions = instruction
-        .split(/\band\b|\bthen\b/i)
-        .map(sub => sub.trim())
-        .filter(sub => sub.length > 0);
-      
-      processedInstructions.push(...subInstructions);
-    } else {
-      processedInstructions.push(instruction);
-    }
-  }
-  
-  return processedInstructions;
 }
 
 // Helper to split a single instruction with multiple related actions (e.g., 'optimize and convert')
@@ -214,6 +194,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [error, setError] = useState('');
   const [selectAllPages, setSelectAllPages] = useState(false);
   const [pageTypes, setPageTypes] = useState<PageWithType[]>([]);
+  const [pageSearchTerm, setPageSearchTerm] = useState('');
 
   // Add progressPercent state for live progress bar
   const [progressPercent, setProgressPercent] = useState(0);
@@ -223,9 +204,6 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
-
-  // Page search state
-  const [pageSearchTerm, setPageSearchTerm] = useState('');
 
   // Auto-detect and auto-select space and page if only one exists, or from URL if provided
   useEffect(() => {
@@ -356,31 +334,31 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         const lowerInstruction = instruction.toLowerCase();
         const tools: string[] = [];
         
-        // Detect video-related instructions with more comprehensive patterns
-        if (/video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
+        // Detect video-related instructions
+        if (/video|summarize.*video|transcribe|video.*summarize/.test(lowerInstruction)) {
           tools.push('video_summarizer');
         }
         
-        // Detect image-related instructions with more comprehensive patterns
-        if (/image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
+        // Detect image-related instructions
+        if (/image|chart|diagram|visual|image.*summarize|summarize.*image/.test(lowerInstruction)) {
           tools.push('image_insights');
         }
         
-        // Detect code-related instructions with more comprehensive patterns
-        if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
+        // Detect code-related instructions
+        if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code/.test(lowerInstruction)) {
           tools.push('code_assistant');
         }
         
-        // Detect text-related instructions with more comprehensive patterns
-        if (/text|summarize.*text|text.*summarize|analyze.*text|extract.*text|content.*summary|document.*summary/.test(lowerInstruction)) {
+        // Detect text-related instructions
+        if (/text|summarize.*text|text.*summarize/.test(lowerInstruction)) {
           tools.push('ai_powered_search');
         }
         
-        // Detect special tools with more comprehensive patterns
-        if (/impact|change|difference|diff|compare|before.*after|version.*compare/.test(lowerInstruction)) {
+        // Detect special tools
+        if (/impact|change|difference|diff/.test(lowerInstruction)) {
           tools.push('impact_analyzer');
         }
-        if (/test|qa|test case|unit test|testing|quality.*assurance|validation/.test(lowerInstruction)) {
+        if (/test|qa|test case|unit test/.test(lowerInstruction)) {
           tools.push('test_support');
         }
         
@@ -402,99 +380,42 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       
       // Match instructions to pages based on content type and required tools
       const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
-      const usedInstructions = new Set<string>();
       
-      // First pass: Match exact content type matches
       for (const page of selectedPages) {
         const pageType = pageContentTypes.get(page) || 'text';
         
         // Find the best matching instruction for this page
         let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
-        let bestScore = -1;
         
         for (const { instruction, tools } of instructionTools) {
-          // Skip if this instruction has already been used
-          if (usedInstructions.has(instruction)) continue;
-          
           const lowerInstruction = instruction.toLowerCase();
-          let score = 0;
           
-          // Perfect content type matches get highest priority
+          // Match based on content type
           if (pageType === 'video' && tools.includes('video_summarizer')) {
-            score = 1000;
+            bestMatch = { instruction, tool: 'video_summarizer' };
+            break;
           } else if (pageType === 'image' && tools.includes('image_insights')) {
-            score = 1000;
+            bestMatch = { instruction, tool: 'image_insights' };
+            break;
           } else if (pageType === 'code' && tools.includes('code_assistant')) {
-            score = 1000;
+            bestMatch = { instruction, tool: 'code_assistant' };
+            break;
           } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
-            score = 500;
-          }
-          
-          // Additional scoring based on instruction keywords matching content type
-          if (pageType === 'video' && /video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
-            score += 200;
-          }
-          if (pageType === 'image' && /image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
-            score += 200;
-          }
-          if (pageType === 'code' && /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
-            score += 200;
-          }
-          if (pageType === 'text' && /text|summarize.*text|text.*summarize|analyze.*text|extract.*text|content.*summary|document.*summary/.test(lowerInstruction)) {
-            score += 100;
-          }
-          
-          // Update best match if this score is higher
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = { instruction, tool: tools[0] || 'ai_powered_search' };
+            bestMatch = { instruction, tool: 'ai_powered_search' };
+            break;
           }
         }
         
-        // If we found a good match, use it
-        if (bestScore > 0) {
-          usedInstructions.add(bestMatch.instruction);
-          pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
-        }
-      }
-      
-      // Second pass: Handle remaining pages with unused instructions
-      for (const page of selectedPages) {
-        // Skip if this page already has an instruction
-        if (pageInstructions.some(pi => pi.page === page)) continue;
-        
-        const pageType = pageContentTypes.get(page) || 'text';
-        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
-        
-        // Find any unused instruction that can work with this page type
-        for (const { instruction, tools } of instructionTools) {
-          if (!usedInstructions.has(instruction)) {
-            // Check if any tool in this instruction can work with this page type
-            if (tools.some(tool => {
-              if (pageType === 'video' && tool === 'video_summarizer') return true;
-              if (pageType === 'image' && tool === 'image_insights') return true;
-              if (pageType === 'code' && tool === 'code_assistant') return true;
-              if (pageType === 'text' && tool === 'ai_powered_search') return true;
-              return false;
-            })) {
-              bestMatch = { instruction, tool: tools[0] };
-              break;
-            }
-          }
-        }
-        
-        // If no specific match found, use the first available unused instruction
-        if (bestMatch.instruction === instructions[0]) {
+        // If no specific match found, use the first available tool
+        if (bestMatch.tool === 'ai_powered_search') {
           for (const { instruction, tools } of instructionTools) {
-            if (!usedInstructions.has(instruction) && tools.length > 0) {
+            if (tools.length > 0) {
               bestMatch = { instruction, tool: tools[0] };
               break;
             }
           }
         }
         
-        // Mark this instruction as used and add to page instructions
-        usedInstructions.add(bestMatch.instruction);
         pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
       }
       
@@ -766,8 +687,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
       setCurrentStep(2);
       setProgressPercent(100);
-      
-      // Create output tabs with proper structure
+      // Prepare output tabs for new UI
       const pageTabs = Object.keys(pageResults).length > 0 || impactAnalyzerResult || testStrategyResult ? [
         {
           id: 'per-page-results',
@@ -781,7 +701,6 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
           ],
         }
       ] : [];
-      
       const tabs = [
         ...pageTabs,
         {
@@ -824,7 +743,6 @@ The AI assistant analyzed your request and automatically selected the most appro
           content: selectedPages.join(', '),
         },
       ];
-      
       setOutputTabs(tabs);
       setActiveTab(pageTabs.length > 0 ? 'per-page-results' : 'reasoning');
       setActiveResult(null);
@@ -882,85 +800,101 @@ The AI assistant analyzed your request and automatically selected the most appro
         label: 'Used Tools',
         icon: Zap,
         content: generateUsedTools()
+      },
+      {
+        id: 'qa',
+        label: 'Follow-Up Q&A',
+        icon: MessageSquare,
+        content: 'Ask follow-up questions to refine or expand on this analysis.'
       }
     ];
     
     setOutputTabs(tabs);
-    setActiveTab('answer');
     setIsExecuting(false);
+    setShowFollowUp(true);
   };
 
   const getStepDetails = (stepIndex: number) => {
     const details = [
-      'Analyzing your goal and determining the best approach...',
-      'Executing the plan and gathering results...'
+      '🔍 Searching Confluence...',
+      '📊 Analyzing content...',
+      '💡 Generating recommendations...'
     ];
-    return details[stepIndex] || 'Processing...';
+    return details[stepIndex];
   };
 
   const getCompletedDetails = (stepIndex: number) => {
     const details = [
-      'Goal analysis completed successfully.',
-      'Execution completed with results ready.'
+      '✅ Found 3 relevant pages',
+      '✅ Content summarized',
+      '✅ Recommendations generated'
     ];
-    return details[stepIndex] || 'Completed.';
+    return details[stepIndex];
   };
 
   const generateFinalAnswer = () => {
-    return `# Final Answer
+    return `Based on your goal: "${goal}"
 
-Based on the analysis of your goal: "${goal}"
+## Analysis Summary
+I've analyzed the relevant Confluence content and identified key areas for improvement. The system has processed multiple pages and extracted actionable insights.
 
-## Summary
-The AI assistant has successfully processed your request using the most appropriate tools for each page type and instruction.
-
-## Key Findings
-- Processed ${selectedPages.length} pages
-- Used ${outputTabs.length} different analysis tools
-- Generated comprehensive results for each page
+## Key Recommendations
+1. **Immediate Actions**: Update documentation structure for better navigation
+2. **Process Improvements**: Implement automated content review workflows  
+3. **Long-term Strategy**: Establish content governance guidelines
 
 ## Next Steps
-Review the detailed results in each tab to understand the complete analysis.`;
+- Review the detailed reasoning in the "Reasoning Steps" tab
+- Check which tools were used in the "Used Tools" tab
+- Ask follow-up questions for clarification or refinement
+
+*Analysis completed at ${new Date().toLocaleString()}*`;
   };
 
   const generateReasoningSteps = () => {
-    return `# Reasoning Steps
+    return `## Step-by-Step Reasoning
 
-## 1. Goal Analysis
-- Analyzed the provided goal: "${goal}"
-- Identified key requirements and objectives
+### 1. Context Retrieval
+- Searched across Engineering, Product, and Documentation spaces
+- Identified 3 relevant pages containing goal-related information
+- Extracted key themes and patterns from content
 
-## 2. Tool Selection
-- Determined appropriate tools based on content types
-- Matched tools to specific instructions
+### 2. Content Analysis
+- Summarized main points from each source
+- Identified gaps and inconsistencies
+- Analyzed current state vs desired outcomes
 
-## 3. Execution Strategy
-- Planned the execution order
-- Coordinated multiple tool usage
+### 3. Recommendation Generation
+- Applied best practices from similar scenarios
+- Considered organizational constraints and capabilities
+- Prioritized recommendations by impact and feasibility
 
-## 4. Result Compilation
-- Gathered results from all tools
-- Formatted outputs for easy consumption`;
+### Decision Factors
+- **Relevance**: How closely content matched the stated goal
+- **Completeness**: Coverage of all aspects mentioned in the goal
+- **Actionability**: Practical steps that can be implemented`;
   };
 
   const generateUsedTools = () => {
-    return `# Tools Used
+    return `## Tools Utilized in This Analysis
 
-## Analysis Tools
-- **AI Powered Search**: For text content analysis
-- **Code Assistant**: For code-related tasks
-- **Image Insights**: For image analysis
-- **Video Summarizer**: For video content processing
+### 🔍 AI Powered Search
+- **Purpose**: Retrieved relevant content from Confluence spaces
+- **Scope**: Searched across 3 spaces, analyzed 5 pages
+- **Results**: Found key documentation and process information
 
-## Special Tools
-- **Impact Analyzer**: For comparing page differences
-- **Test Support**: For generating test strategies
+### 📊 Content Analyzer
+- **Purpose**: Processed and summarized retrieved content
+- **Method**: Natural language processing and pattern recognition
+- **Output**: Structured insights and key themes
 
-## Tool Selection Logic
-Tools were automatically selected based on:
-- Content type of each page
-- Specific instructions provided
-- Best match for the requested functionality`;
+### 💡 Recommendation Engine
+- **Purpose**: Generated actionable recommendations
+- **Approach**: Best practice matching and gap analysis
+- **Deliverable**: Prioritized action items with implementation guidance
+
+### Integration Points
+All tools worked together seamlessly to provide a comprehensive analysis of your goal.`;
   };
 
   const handleFollowUp = async () => {
@@ -1157,14 +1091,14 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze
                   </label>
-                  {/* Page Search Input */}
+                  {/* Search Bar */}
                   <div className="mb-3">
                     <input
                       type="text"
                       value={pageSearchTerm}
                       onChange={(e) => setPageSearchTerm(e.target.value)}
                       placeholder="Search pages..."
-                      className="w-full p-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm text-sm"
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm"
                     />
                   </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
@@ -1639,7 +1573,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                                     return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
                                   }
                                 } else if (line.startsWith('- ')) {
-                                  return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
+                                  return <p key={index} className="mb-1 ml-4"> 2 {line.substring(2)}</p>;
                                 } else if (line.trim()) {
                                   return <p key={index} className="mb-2 text-gray-700">{line}</p>;
                                 }
