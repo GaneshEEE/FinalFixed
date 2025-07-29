@@ -418,17 +418,22 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         availablePagesByType[pageType as keyof typeof availablePagesByType].push(page);
       }
       
+      // Debug: Log the available pages by type
+      console.log('Available pages by type:', availablePagesByType);
+      console.log('Selected pages:', selectedPages);
+      console.log('Page content types:', Object.fromEntries(pageContentTypes));
+      
       // Process each instruction in user order and assign to correct page type
       for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
         const { instruction, tools } = instructionTools[instructionIndex];
         const lowerInstruction = instruction.toLowerCase();
-        
+      
         // Explicitly determine the required content type and tool for this instruction
         let requiredContentType = 'text'; // default
         let targetTool = 'ai_powered_search';
-        
+      
         // Check for code-related instructions first (most specific)
-        if (/convert.*code|code.*convert|debug.*code|code.*debug|refactor.*code|code.*refactor|fix.*code|code.*fix|bug.*code|code.*bug|error.*code|code.*error|optimize.*code|code.*optimize|performance.*code|code.*performance|documentation.*code|code.*documentation|docs.*code|code.*docs|comment.*code|code.*comment|dead code|unused.*code|code.*unused|logging.*code|code.*logging|log.*code|code.*log|code|programming|script|function|class|method/.test(lowerInstruction)) {
+        if (/convert.*code|code.*convert|debug.*code|code.*debug|refactor.*code|code.*refactor|fix.*code|code.*fix|bug.*code|code.*bug|error.*code|code.*error|optimize.*code|code.*optimize|performance.*code|code.*performance|documentation.*code|code.*documentation|docs.*code|code.*docs|comment.*code|code.*comment|dead code|unused.*code|code.*unused|logging.*code|code.*logging|log.*code|code.*log|programming|script|function|class|method/.test(lowerInstruction)) {
           requiredContentType = 'code';
           targetTool = 'code_assistant';
         }
@@ -447,21 +452,52 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
           requiredContentType = 'text';
           targetTool = 'ai_powered_search';
         }
-        
-        // Find the correct page for this instruction
+      
+        // Debug: Log the instruction analysis
+        console.log(`Analyzing instruction: "${instruction}"`);
+        console.log(`  - Lower instruction: "${lowerInstruction}"`);
+        console.log(`  - Determined content type: ${requiredContentType}`);
+        console.log(`  - Determined tool: ${targetTool}`);
+      
+        // Find the correct page for this instruction based on content type
         let assignedPage = '';
-        const pagesOfRequiredType = availablePagesByType[requiredContentType as keyof typeof availablePagesByType];
-        
-        // First, try to find an unused page of the exact required content type
-        for (const page of pagesOfRequiredType) {
-          if (!usedPages.has(page)) {
+      
+        // Always assign the first unused page of the required content type
+        for (const page of selectedPages) {
+          const pageType = pageContentTypes.get(page) || 'text';
+          if (pageType === requiredContentType && !usedPages.has(page)) {
             assignedPage = page;
             usedPages.add(page);
             break;
           }
         }
-        
-        // If no page of required type available, find any unused page
+      
+        // If no page of required type available, find any unused page that's compatible with the tool
+        if (!assignedPage) {
+          for (const page of selectedPages) {
+            if (!usedPages.has(page)) {
+              const pageType = pageContentTypes.get(page) || 'text';
+              // Check if the tool is compatible with this page type
+              let isCompatible = false;
+              if (targetTool === 'code_assistant' && pageType === 'code') {
+                isCompatible = true;
+              } else if (targetTool === 'image_insights' && pageType === 'image') {
+                isCompatible = true;
+              } else if (targetTool === 'video_summarizer' && pageType === 'video') {
+                isCompatible = true;
+              } else if (targetTool === 'ai_powered_search' && (pageType === 'text' || pageType === 'code')) {
+                isCompatible = true;
+              }
+              if (isCompatible) {
+                assignedPage = page;
+                usedPages.add(page);
+                break;
+              }
+            }
+          }
+        }
+      
+        // If still no page found, assign to any unused page (last resort)
         if (!assignedPage) {
           for (const page of selectedPages) {
             if (!usedPages.has(page)) {
@@ -471,7 +507,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
             }
           }
         }
-        
+      
         // Add to pageInstructions
         if (assignedPage) {
           pageInstructions.push({ 
@@ -480,16 +516,32 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
             tool: targetTool,
             instructionIndex 
           });
+      
+          // Debug: Log the assignment
+          console.log(`Instruction ${instructionIndex + 1}: "${instruction}"`);
+          console.log(`  - Required content type: ${requiredContentType}`);
+          console.log(`  - Target tool: ${targetTool}`);
+          console.log(`  - Assigned page: ${assignedPage}`);
+          console.log(`  - Page content type: ${pageContentTypes.get(assignedPage)}`);
         }
       }
       
       // Sort pageInstructions by instructionIndex to maintain user instruction order
       pageInstructions.sort((a, b) => a.instructionIndex - b.instructionIndex);
       
+      // Debug: Log the final execution order
+      console.log('Final execution order:');
+      pageInstructions.forEach((pi, index) => {
+        console.log(`${index + 1}. Instruction: "${pi.instruction}" -> Page: ${pi.page} -> Tool: ${pi.tool}`);
+      });
+      
       for (const { page, instruction, tool, instructionIndex } of pageInstructions) {
         const type = pageContentTypes.get(page) || 'text';
         let outputs: string[] = [];
         let formattedOutput = '';
+        
+        // Debug: Log what tool is being executed
+        console.log(`Executing: Page: ${page}, Instruction: "${instruction}", Tool: ${tool}, Page Type: ${type}`);
         
         if (tool === 'code_assistant') {
           // Handle AI actions for code pages
@@ -624,7 +676,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         }
         if (!pageResults[page]) pageResults[page] = [];
         // Only push the result for this page/instruction pair
-        pageResults[page].push({ instruction, tool, outputs, formattedOutput });
+        pageResults[page].push({ instruction, tool, outputs, formattedOutput, instructionIndex });
       }
       
       // Handle special cases for Impact Analyzer and Test Strategy
@@ -648,15 +700,15 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
                     <div className="font-semibold text-green-800 text-lg">+{res.lines_added || 0}</div>
                     <div className="text-green-600 text-xs">Lines Added</div>
                   </div>
-                  <div className="bg-red-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-red-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-red-800 text-lg">-{res.lines_removed || 0}</div>
                     <div className="text-red-600 text-xs">Lines Removed</div>
                   </div>
-                  <div className="bg-blue-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-blue-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-blue-800 text-lg">{res.files_changed || 1}</div>
                     <div className="text-blue-600 text-xs">Files Changed</div>
                   </div>
-                  <div className="bg-purple-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-purple-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-purple-800 text-lg">{res.percentage_change || 0}%</div>
                     <div className="text-purple-600 text-xs">Percentage Changed</div>
                   </div>
@@ -756,17 +808,35 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       setProgressPercent(100);
       
       // Create output tabs with proper structure
-      const pageTabs = Object.keys(pageResults).length > 0 || impactAnalyzerResult || testStrategyResult ? [
+      // Build a flat array of results in instruction order, using the assigned page for each instruction
+      const orderedResults = pageInstructions.map(({ page, instruction, tool, instructionIndex }) => {
+        // Find the result for this instruction and page
+        const resultsForPage = pageResults[page] || [];
+        // Find the result with the matching instructionIndex
+        const result = resultsForPage.find((r: any) => r.instructionIndex === instructionIndex) || {};
+        return {
+          page, // this is the assigned page for this instruction
+          instruction,
+          tool,
+          outputs: result.outputs || [],
+          formattedOutput: result.formattedOutput || '',
+          instructionIndex
+        };
+      });
+
+      // Each result gets its own tab/button, labeled with the assigned page
+      const pageTabs = orderedResults.length > 0 || impactAnalyzerResult || testStrategyResult ? [
         {
           id: 'per-page-results',
           label: 'Page Results',
           icon: FileText,
           content: '',
-          results: [
-            ...(impactAnalyzerResult ? [{ impactAnalyzerResult }] : []),
-            ...(testStrategyResult ? [{ testStrategyResult }] : []),
-            ...Object.entries(pageResults).map(([page, results]) => ({ page, results })),
-          ],
+          results: orderedResults.map(r => ({
+            page: r.page,
+            instruction: r.instruction,
+            tool: r.tool,
+            results: [r]
+          })),
         }
       ] : [];
       
@@ -822,10 +892,10 @@ The AI assistant analyzed your request and automatically selected the most appro
     } catch (err: any) {
       setError(err.message || 'An error occurred during orchestration.');
     }
-    setIsPlanning(false);
-    setCurrentStep(2);
-    setProgressPercent(100);
-  };
+         setIsPlanning(false);
+     setCurrentStep(2);
+     setProgressPercent(100);
+   };
 
   const executeSteps = async (steps: PlanStep[]) => {
     setIsExecuting(true);
@@ -1203,7 +1273,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <div className="flex items-start space-x-2 mb-4">
                     <div className="flex-1">
                       <textarea
-                        value={goal}
+                      value={goal}
                         onChange={(e) => setGoal(e.target.value)}
                         placeholder="Describe your goal in detail... (e.g., 'Help me analyze our documentation structure and recommend improvements for better user experience')"
                         className="w-full p-4 border-2 border-orange-200/50 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none bg-white/70 backdrop-blur-sm text-lg"
@@ -1214,9 +1284,9 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                       <VoiceRecorder
                         onConfirm={t => setGoal(t)}
                         inputPlaceholder="Speak your goal..."
-                        buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
+                      buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
                         buttonOnly={true}
-                      />
+                    />
                       <button
                         onClick={handleGoalSubmit}
                         disabled={!goal.trim() || !selectedSpace || selectedPages.length === 0}
