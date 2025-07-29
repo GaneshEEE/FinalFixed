@@ -438,40 +438,40 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         instructionToContentType.push({ instruction, requiredContentType, tools, instructionIndex });
       }
       
-      // Sort instructions by priority: specific content types first, then text
-      instructionToContentType.sort((a, b) => {
-        const priorityOrder = { 'video': 4, 'image': 3, 'code': 2, 'text': 1 };
-        const aPriority = priorityOrder[a.requiredContentType as keyof typeof priorityOrder] || 1;
-        const bPriority = priorityOrder[b.requiredContentType as keyof typeof priorityOrder] || 1;
-        return bPriority - aPriority; // Higher priority first
-      });
+      // Create a mapping to ensure each instruction gets the correct page type
+      const instructionToPageMapping: { [key: string]: string } = {};
       
-      // Now assign pages to instructions based on content type matching
+      // First pass: Assign specific content type instructions to their matching pages
       for (const { instruction, requiredContentType, tools, instructionIndex } of instructionToContentType) {
         const pagesOfRequiredType = availablePagesByType[requiredContentType as keyof typeof availablePagesByType];
-        let assignedPage = '';
         
         // Find an available page of the required content type
         for (const page of pagesOfRequiredType) {
           if (!usedPages.has(page)) {
-            assignedPage = page;
+            instructionToPageMapping[instruction] = page;
             usedPages.add(page);
             break;
           }
         }
-        
-        // If no page of required type available, find any unused page
-        if (!assignedPage) {
+      }
+      
+      // Second pass: Handle any remaining instructions
+      for (const { instruction, requiredContentType, tools, instructionIndex } of instructionToContentType) {
+        if (!instructionToPageMapping[instruction]) {
+          // Find any unused page
           for (const page of selectedPages) {
             if (!usedPages.has(page)) {
-              assignedPage = page;
+              instructionToPageMapping[instruction] = page;
               usedPages.add(page);
               break;
             }
           }
         }
-        
-        // Add to pageInstructions
+      }
+      
+      // Create pageInstructions in the order of user instructions
+      for (const { instruction, requiredContentType, tools, instructionIndex } of instructionToContentType) {
+        const assignedPage = instructionToPageMapping[instruction];
         if (assignedPage) {
           pageInstructions.push({ 
             page: assignedPage, 
