@@ -405,53 +405,89 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       const pageInstructions: { page: string, instruction: string, tool: string, instructionIndex: number }[] = [];
       const usedPages = new Set<string>();
       
+      // First, create a mapping of available pages by content type
+      const availablePagesByType = {
+        video: [] as string[],
+        image: [] as string[],
+        code: [] as string[],
+        text: [] as string[]
+      };
+      
+      for (const page of selectedPages) {
+        const pageType = pageContentTypes.get(page) || 'text';
+        availablePagesByType[pageType as keyof typeof availablePagesByType].push(page);
+      }
+      
       // Process instructions in the order they were given by the user
       for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
         const { instruction, tools } = instructionTools[instructionIndex];
         const lowerInstruction = instruction.toLowerCase();
         
+        // Determine the required content type for this instruction
+        let requiredContentType = 'text'; // default
+        if (tools.includes('video_summarizer') || /video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
+          requiredContentType = 'video';
+        } else if (tools.includes('image_insights') || /image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
+          requiredContentType = 'image';
+        } else if (tools.includes('code_assistant') || /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
+          requiredContentType = 'code';
+        }
+        
         // Find the best matching page for this instruction
         let bestMatch = { page: '', score: -1, tool: 'ai_powered_search' };
         
-        for (const page of selectedPages) {
-          // Skip if this page has already been used
-          if (usedPages.has(page)) continue;
-          
-          const pageType = pageContentTypes.get(page) || 'text';
-          let score = 0;
-          
-          // Perfect content type matches get highest priority
-          if (pageType === 'video' && tools.includes('video_summarizer')) {
-            score = 1000;
-          } else if (pageType === 'image' && tools.includes('image_insights')) {
-            score = 1000;
-          } else if (pageType === 'code' && tools.includes('code_assistant')) {
-            score = 1000;
-          } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
-            score = 500;
-          }
-          
-          // Additional scoring based on instruction keywords matching content type
-          if (pageType === 'video' && /video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
-            score += 200;
-          }
-          if (pageType === 'image' && /image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
-            score += 200;
-          }
-          if (pageType === 'code' && /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
-            score += 200;
-          }
-          if (pageType === 'text' && /text|summarize.*text|text.*summarize|analyze.*text|extract.*text|content.*summary|document.*summary/.test(lowerInstruction)) {
-            score += 100;
-          }
-          
-          // Update best match if this score is higher
-          if (score > bestMatch.score) {
+        // First, try to find a page of the exact required content type
+        const pagesOfRequiredType = availablePagesByType[requiredContentType as keyof typeof availablePagesByType];
+        for (const page of pagesOfRequiredType) {
+          if (!usedPages.has(page)) {
+            const pageType = pageContentTypes.get(page) || 'text';
+            let score = 1000; // Perfect match
+            
+            // Additional scoring based on instruction keywords
+            if (pageType === 'video' && /video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
+              score += 200;
+            }
+            if (pageType === 'image' && /image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
+              score += 200;
+            }
+            if (pageType === 'code' && /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
+              score += 200;
+            }
+            if (pageType === 'text' && /text|summarize.*text|text.*summarize|analyze.*text|extract.*text|content.*summary|document.*summary/.test(lowerInstruction)) {
+              score += 100;
+            }
+            
             bestMatch = { page, score, tool: tools[0] || 'ai_powered_search' };
+            break; // Found perfect match, use it
           }
         }
         
-        // If we found a good match, assign it
+        // If no perfect match found, try other available pages
+        if (bestMatch.score === -1) {
+          for (const page of selectedPages) {
+            if (!usedPages.has(page)) {
+              const pageType = pageContentTypes.get(page) || 'text';
+              let score = 0;
+              
+              // Check if this page type can work with any of the tools
+              if (pageType === 'video' && tools.includes('video_summarizer')) {
+                score = 500;
+              } else if (pageType === 'image' && tools.includes('image_insights')) {
+                score = 500;
+              } else if (pageType === 'code' && tools.includes('code_assistant')) {
+                score = 500;
+              } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
+                score = 300;
+              }
+              
+              if (score > bestMatch.score) {
+                bestMatch = { page, score, tool: tools[0] || 'ai_powered_search' };
+              }
+            }
+          }
+        }
+        
+        // Assign the instruction to the best matching page
         if (bestMatch.score > 0) {
           usedPages.add(bestMatch.page);
           pageInstructions.push({ 
@@ -461,7 +497,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
             instructionIndex 
           });
         } else {
-          // If no good match found, assign to the first available unused page
+          // Fallback: assign to first available unused page
           for (const page of selectedPages) {
             if (!usedPages.has(page)) {
               usedPages.add(page);
