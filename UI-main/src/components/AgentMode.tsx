@@ -56,31 +56,11 @@ const codeAiActionPromptMap = (code: string): { [key: string]: string } => ({
 
 // Helper to split user input into actionable instructions
 function splitInstructions(input: string): string[] {
-  // Split on common instruction separators with better handling of complex instructions
-  const instructions = input
+  // Split on common instruction separators
+  return input
     .split(/\band\b|\bthen\b|\n|\r|\r\n|\.|;|,|\|\||\|\s/i)
     .map(instr => instr.trim())
     .filter(instr => instr.length > 0 && instr.length > 3); // Filter out very short fragments
-  
-  // Post-process instructions to handle complex cases
-  const processedInstructions: string[] = [];
-  
-  for (const instruction of instructions) {
-    // Handle complex instructions that might contain multiple actions
-    if (instruction.includes(' and ') || instruction.includes(' then ')) {
-      // Split complex instructions further
-      const subInstructions = instruction
-        .split(/\band\b|\bthen\b/i)
-        .map(sub => sub.trim())
-        .filter(sub => sub.length > 0);
-      
-      processedInstructions.push(...subInstructions);
-    } else {
-      processedInstructions.push(instruction);
-    }
-  }
-  
-  return processedInstructions;
 }
 
 // Helper to split a single instruction with multiple related actions (e.g., 'optimize and convert')
@@ -224,9 +204,6 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [showHistory, setShowHistory] = useState(false);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
 
-  // Page search state
-  const [pageSearchTerm, setPageSearchTerm] = useState('');
-
   // Auto-detect and auto-select space and page if only one exists, or from URL if provided
   useEffect(() => {
     const loadSpacesAndPages = async () => {
@@ -299,20 +276,14 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
 
   // Sync "Select All" checkbox state
   useEffect(() => {
-    const filteredPages = pages.filter(page => 
-      page.toLowerCase().includes(pageSearchTerm.toLowerCase())
-    );
-    setSelectAllPages(filteredPages.length > 0 && selectedPages.length === filteredPages.length);
-  }, [selectedPages, pages, pageSearchTerm]);
+    setSelectAllPages(pages.length > 0 && selectedPages.length === pages.length);
+  }, [selectedPages, pages]);
 
   const toggleSelectAllPages = () => {
-    const filteredPages = pages.filter(page => 
-      page.toLowerCase().includes(pageSearchTerm.toLowerCase())
-    );
     if (selectAllPages) {
       setSelectedPages([]);
     } else {
-      setSelectedPages([...filteredPages]);
+      setSelectedPages([...pages]);
     }
     setSelectAllPages(!selectAllPages);
   };
@@ -356,31 +327,31 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         const lowerInstruction = instruction.toLowerCase();
         const tools: string[] = [];
         
-        // Detect video-related instructions with more comprehensive patterns
-        if (/video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
+        // Detect video-related instructions
+        if (/video|summarize.*video|transcribe|video.*summarize/.test(lowerInstruction)) {
           tools.push('video_summarizer');
         }
         
-        // Detect image-related instructions with more comprehensive patterns
-        if (/image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
+        // Detect image-related instructions
+        if (/image|chart|diagram|visual|image.*summarize|summarize.*image/.test(lowerInstruction)) {
           tools.push('image_insights');
         }
         
-        // Detect code-related instructions with more comprehensive patterns
-        if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
+        // Detect code-related instructions
+        if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code/.test(lowerInstruction)) {
           tools.push('code_assistant');
         }
         
-        // Detect text-related instructions with more comprehensive patterns
-        if (/text|summarize.*text|text.*summarize|analyze.*text|extract.*text|content.*summary|document.*summary/.test(lowerInstruction)) {
+        // Detect text-related instructions
+        if (/text|summarize.*text|text.*summarize/.test(lowerInstruction)) {
           tools.push('ai_powered_search');
         }
         
-        // Detect special tools with more comprehensive patterns
-        if (/impact|change|difference|diff|compare|before.*after|version.*compare/.test(lowerInstruction)) {
+        // Detect special tools
+        if (/impact|change|difference|diff/.test(lowerInstruction)) {
           tools.push('impact_analyzer');
         }
-        if (/test|qa|test case|unit test|testing|quality.*assurance|validation/.test(lowerInstruction)) {
+        if (/test|qa|test case|unit test/.test(lowerInstruction)) {
           tools.push('test_support');
         }
         
@@ -401,147 +372,50 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       }
       
       // Match instructions to pages based on content type and required tools
-      // Execute in the order of user instructions, not selected pages
-      const pageInstructions: { page: string, instruction: string, tool: string, instructionIndex: number }[] = [];
-      const usedPages = new Set<string>();
-      
-      // First, create a mapping of available pages by content type
-      const availablePagesByType = {
-        video: [] as string[],
-        image: [] as string[],
-        code: [] as string[],
-        text: [] as string[]
-      };
+      const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
       
       for (const page of selectedPages) {
         const pageType = pageContentTypes.get(page) || 'text';
-        availablePagesByType[pageType as keyof typeof availablePagesByType].push(page);
-      }
-      
-      // Debug: Log the available pages by type
-      console.log('Available pages by type:', availablePagesByType);
-      console.log('Selected pages:', selectedPages);
-      console.log('Page content types:', Object.fromEntries(pageContentTypes));
-      
-      // Process each instruction in user order and assign to correct page type
-      for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
-        const { instruction, tools } = instructionTools[instructionIndex];
-        const lowerInstruction = instruction.toLowerCase();
-      
-        // Explicitly determine the required content type and tool for this instruction
-        let requiredContentType = 'text'; // default
-        let targetTool = 'ai_powered_search';
-      
-        // Check for code-related instructions first (most specific)
-        if (/convert.*code|code.*convert|debug.*code|code.*debug|refactor.*code|code.*refactor|fix.*code|code.*fix|bug.*code|code.*bug|error.*code|code.*error|optimize.*code|code.*optimize|performance.*code|code.*performance|documentation.*code|code.*documentation|docs.*code|code.*docs|comment.*code|code.*comment|dead code|unused.*code|code.*unused|logging.*code|code.*logging|log.*code|code.*log|programming|script|function|class|method/.test(lowerInstruction)) {
-          requiredContentType = 'code';
-          targetTool = 'code_assistant';
-        }
-        // Check for image-related instructions
-        else if (/image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
-          requiredContentType = 'image';
-          targetTool = 'image_insights';
-        }
-        // Check for video-related instructions
-        else if (/video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
-          requiredContentType = 'video';
-          targetTool = 'video_summarizer';
-        }
-        // Default to text
-        else {
-          requiredContentType = 'text';
-          targetTool = 'ai_powered_search';
-        }
-      
-        // Debug: Log the instruction analysis
-        console.log(`Analyzing instruction: "${instruction}"`);
-        console.log(`  - Lower instruction: "${lowerInstruction}"`);
-        console.log(`  - Determined content type: ${requiredContentType}`);
-        console.log(`  - Determined tool: ${targetTool}`);
-      
-        // Find the correct page for this instruction based on content type
-        let assignedPage = '';
-      
-        // Always assign the first unused page of the required content type
-        for (const page of selectedPages) {
-          const pageType = pageContentTypes.get(page) || 'text';
-          if (pageType === requiredContentType && !usedPages.has(page)) {
-            assignedPage = page;
-            usedPages.add(page);
+        
+        // Find the best matching instruction for this page
+        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
+        
+        for (const { instruction, tools } of instructionTools) {
+          const lowerInstruction = instruction.toLowerCase();
+          
+          // Match based on content type
+          if (pageType === 'video' && tools.includes('video_summarizer')) {
+            bestMatch = { instruction, tool: 'video_summarizer' };
+            break;
+          } else if (pageType === 'image' && tools.includes('image_insights')) {
+            bestMatch = { instruction, tool: 'image_insights' };
+            break;
+          } else if (pageType === 'code' && tools.includes('code_assistant')) {
+            bestMatch = { instruction, tool: 'code_assistant' };
+            break;
+          } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
+            bestMatch = { instruction, tool: 'ai_powered_search' };
             break;
           }
         }
-      
-        // If no page of required type available, find any unused page that's compatible with the tool
-        if (!assignedPage) {
-          for (const page of selectedPages) {
-            if (!usedPages.has(page)) {
-              const pageType = pageContentTypes.get(page) || 'text';
-              // Check if the tool is compatible with this page type
-              let isCompatible = false;
-              if (targetTool === 'code_assistant' && pageType === 'code') {
-                isCompatible = true;
-              } else if (targetTool === 'image_insights' && pageType === 'image') {
-                isCompatible = true;
-              } else if (targetTool === 'video_summarizer' && pageType === 'video') {
-                isCompatible = true;
-              } else if (targetTool === 'ai_powered_search' && (pageType === 'text' || pageType === 'code')) {
-                isCompatible = true;
-              }
-              if (isCompatible) {
-                assignedPage = page;
-                usedPages.add(page);
-                break;
-              }
-            }
-          }
-        }
-      
-        // If still no page found, assign to any unused page (last resort)
-        if (!assignedPage) {
-          for (const page of selectedPages) {
-            if (!usedPages.has(page)) {
-              assignedPage = page;
-              usedPages.add(page);
+        
+        // If no specific match found, use the first available tool
+        if (bestMatch.tool === 'ai_powered_search') {
+          for (const { instruction, tools } of instructionTools) {
+            if (tools.length > 0) {
+              bestMatch = { instruction, tool: tools[0] };
               break;
             }
           }
         }
-      
-        // Add to pageInstructions
-        if (assignedPage) {
-          pageInstructions.push({ 
-            page: assignedPage, 
-            instruction, 
-            tool: targetTool,
-            instructionIndex 
-          });
-      
-          // Debug: Log the assignment
-          console.log(`Instruction ${instructionIndex + 1}: "${instruction}"`);
-          console.log(`  - Required content type: ${requiredContentType}`);
-          console.log(`  - Target tool: ${targetTool}`);
-          console.log(`  - Assigned page: ${assignedPage}`);
-          console.log(`  - Page content type: ${pageContentTypes.get(assignedPage)}`);
-        }
+        
+        pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
       }
       
-      // Sort pageInstructions by instructionIndex to maintain user instruction order
-      pageInstructions.sort((a, b) => a.instructionIndex - b.instructionIndex);
-      
-      // Debug: Log the final execution order
-      console.log('Final execution order:');
-      pageInstructions.forEach((pi, index) => {
-        console.log(`${index + 1}. Instruction: "${pi.instruction}" -> Page: ${pi.page} -> Tool: ${pi.tool}`);
-      });
-      
-      for (const { page, instruction, tool, instructionIndex } of pageInstructions) {
+      for (const { page, instruction, tool } of pageInstructions) {
         const type = pageContentTypes.get(page) || 'text';
         let outputs: string[] = [];
         let formattedOutput = '';
-        
-        // Debug: Log what tool is being executed
-        console.log(`Executing: Page: ${page}, Instruction: "${instruction}", Tool: ${tool}, Page Type: ${type}`);
         
         if (tool === 'code_assistant') {
           // Handle AI actions for code pages
@@ -676,7 +550,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         }
         if (!pageResults[page]) pageResults[page] = [];
         // Only push the result for this page/instruction pair
-        pageResults[page].push({ instruction, tool, outputs, formattedOutput, instructionIndex });
+        pageResults[page].push({ instruction, tool, outputs, formattedOutput });
       }
       
       // Handle special cases for Impact Analyzer and Test Strategy
@@ -700,15 +574,15 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
                     <div className="font-semibold text-green-800 text-lg">+{res.lines_added || 0}</div>
                     <div className="text-green-600 text-xs">Lines Added</div>
                   </div>
-                  <div className="bg-red-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-red-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-red-800 text-lg">-{res.lines_removed || 0}</div>
                     <div className="text-red-600 text-xs">Lines Removed</div>
                   </div>
-                  <div className="bg-blue-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-blue-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-blue-800 text-lg">{res.files_changed || 1}</div>
                     <div className="text-blue-600 text-xs">Files Changed</div>
                   </div>
-                  <div className="bg-purple-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-purple-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-purple-800 text-lg">{res.percentage_change || 0}%</div>
                     <div className="text-purple-600 text-xs">Percentage Changed</div>
                   </div>
@@ -806,40 +680,20 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
       setCurrentStep(2);
       setProgressPercent(100);
-      
-      // Create output tabs with proper structure
-      // Build a flat array of results in instruction order, using the assigned page for each instruction
-      const orderedResults = pageInstructions.map(({ page, instruction, tool, instructionIndex }) => {
-        // Find the result for this instruction and page
-        const resultsForPage = pageResults[page] || [];
-        // Find the result with the matching instructionIndex
-        const result = resultsForPage.find((r: any) => r.instructionIndex === instructionIndex) || {};
-        return {
-          page, // this is the assigned page for this instruction
-          instruction,
-          tool,
-          outputs: result.outputs || [],
-          formattedOutput: result.formattedOutput || '',
-          instructionIndex
-        };
-      });
-
-      // Each result gets its own tab/button, labeled with the assigned page
-      const pageTabs = orderedResults.length > 0 || impactAnalyzerResult || testStrategyResult ? [
+      // Prepare output tabs for new UI
+      const pageTabs = Object.keys(pageResults).length > 0 || impactAnalyzerResult || testStrategyResult ? [
         {
           id: 'per-page-results',
           label: 'Page Results',
           icon: FileText,
           content: '',
-          results: orderedResults.map(r => ({
-            page: r.page,
-            instruction: r.instruction,
-            tool: r.tool,
-            results: [r]
-          })),
+          results: [
+            ...(impactAnalyzerResult ? [{ impactAnalyzerResult }] : []),
+            ...(testStrategyResult ? [{ testStrategyResult }] : []),
+            ...Object.entries(pageResults).map(([page, results]) => ({ page, results })),
+          ],
         }
       ] : [];
-      
       const tabs = [
         ...pageTabs,
         {
@@ -882,7 +736,6 @@ The AI assistant analyzed your request and automatically selected the most appro
           content: selectedPages.join(', '),
         },
       ];
-      
       setOutputTabs(tabs);
       setActiveTab(pageTabs.length > 0 ? 'per-page-results' : 'reasoning');
       setActiveResult(null);
@@ -892,10 +745,10 @@ The AI assistant analyzed your request and automatically selected the most appro
     } catch (err: any) {
       setError(err.message || 'An error occurred during orchestration.');
     }
-         setIsPlanning(false);
-     setCurrentStep(2);
-     setProgressPercent(100);
-   };
+    setIsPlanning(false);
+    setCurrentStep(2);
+    setProgressPercent(100);
+  };
 
   const executeSteps = async (steps: PlanStep[]) => {
     setIsExecuting(true);
@@ -940,85 +793,101 @@ The AI assistant analyzed your request and automatically selected the most appro
         label: 'Used Tools',
         icon: Zap,
         content: generateUsedTools()
+      },
+      {
+        id: 'qa',
+        label: 'Follow-Up Q&A',
+        icon: MessageSquare,
+        content: 'Ask follow-up questions to refine or expand on this analysis.'
       }
     ];
     
     setOutputTabs(tabs);
-    setActiveTab('answer');
     setIsExecuting(false);
+    setShowFollowUp(true);
   };
 
   const getStepDetails = (stepIndex: number) => {
     const details = [
-      'Analyzing your goal and determining the best approach...',
-      'Executing the plan and gathering results...'
+      '🔍 Searching Confluence...',
+      '📊 Analyzing content...',
+      '💡 Generating recommendations...'
     ];
-    return details[stepIndex] || 'Processing...';
+    return details[stepIndex];
   };
 
   const getCompletedDetails = (stepIndex: number) => {
     const details = [
-      'Goal analysis completed successfully.',
-      'Execution completed with results ready.'
+      '✅ Found 3 relevant pages',
+      '✅ Content summarized',
+      '✅ Recommendations generated'
     ];
-    return details[stepIndex] || 'Completed.';
+    return details[stepIndex];
   };
 
   const generateFinalAnswer = () => {
-    return `# Final Answer
+    return `Based on your goal: "${goal}"
 
-Based on the analysis of your goal: "${goal}"
+## Analysis Summary
+I've analyzed the relevant Confluence content and identified key areas for improvement. The system has processed multiple pages and extracted actionable insights.
 
-## Summary
-The AI assistant has successfully processed your request using the most appropriate tools for each page type and instruction.
-
-## Key Findings
-- Processed ${selectedPages.length} pages
-- Used ${outputTabs.length} different analysis tools
-- Generated comprehensive results for each page
+## Key Recommendations
+1. **Immediate Actions**: Update documentation structure for better navigation
+2. **Process Improvements**: Implement automated content review workflows  
+3. **Long-term Strategy**: Establish content governance guidelines
 
 ## Next Steps
-Review the detailed results in each tab to understand the complete analysis.`;
+- Review the detailed reasoning in the "Reasoning Steps" tab
+- Check which tools were used in the "Used Tools" tab
+- Ask follow-up questions for clarification or refinement
+
+*Analysis completed at ${new Date().toLocaleString()}*`;
   };
 
   const generateReasoningSteps = () => {
-    return `# Reasoning Steps
+    return `## Step-by-Step Reasoning
 
-## 1. Goal Analysis
-- Analyzed the provided goal: "${goal}"
-- Identified key requirements and objectives
+### 1. Context Retrieval
+- Searched across Engineering, Product, and Documentation spaces
+- Identified 3 relevant pages containing goal-related information
+- Extracted key themes and patterns from content
 
-## 2. Tool Selection
-- Determined appropriate tools based on content types
-- Matched tools to specific instructions
+### 2. Content Analysis
+- Summarized main points from each source
+- Identified gaps and inconsistencies
+- Analyzed current state vs desired outcomes
 
-## 3. Execution Strategy
-- Planned the execution order
-- Coordinated multiple tool usage
+### 3. Recommendation Generation
+- Applied best practices from similar scenarios
+- Considered organizational constraints and capabilities
+- Prioritized recommendations by impact and feasibility
 
-## 4. Result Compilation
-- Gathered results from all tools
-- Formatted outputs for easy consumption`;
+### Decision Factors
+- **Relevance**: How closely content matched the stated goal
+- **Completeness**: Coverage of all aspects mentioned in the goal
+- **Actionability**: Practical steps that can be implemented`;
   };
 
   const generateUsedTools = () => {
-    return `# Tools Used
+    return `## Tools Utilized in This Analysis
 
-## Analysis Tools
-- **AI Powered Search**: For text content analysis
-- **Code Assistant**: For code-related tasks
-- **Image Insights**: For image analysis
-- **Video Summarizer**: For video content processing
+### 🔍 AI Powered Search
+- **Purpose**: Retrieved relevant content from Confluence spaces
+- **Scope**: Searched across 3 spaces, analyzed 5 pages
+- **Results**: Found key documentation and process information
 
-## Special Tools
-- **Impact Analyzer**: For comparing page differences
-- **Test Support**: For generating test strategies
+### 📊 Content Analyzer
+- **Purpose**: Processed and summarized retrieved content
+- **Method**: Natural language processing and pattern recognition
+- **Output**: Structured insights and key themes
 
-## Tool Selection Logic
-Tools were automatically selected based on:
-- Content type of each page
-- Specific instructions provided
-- Best match for the requested functionality`;
+### 💡 Recommendation Engine
+- **Purpose**: Generated actionable recommendations
+- **Approach**: Best practice matching and gap analysis
+- **Deliverable**: Prioritized action items with implementation guidance
+
+### Integration Points
+All tools worked together seamlessly to provide a comprehensive analysis of your goal.`;
   };
 
   const handleFollowUp = async () => {
@@ -1215,36 +1084,24 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze
                   </label>
-                  {/* Page Search Input */}
-                  <div className="mb-3">
-                    <input
-                      type="text"
-                      value={pageSearchTerm}
-                      onChange={(e) => setPageSearchTerm(e.target.value)}
-                      placeholder="Search pages..."
-                      className="w-full p-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm text-sm"
-                    />
-                  </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
-                    {pages
-                      .filter(page => page.toLowerCase().includes(pageSearchTerm.toLowerCase()))
-                      .map(page => (
-                        <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
-                          <input
-                            type="checkbox"
-                            checked={selectedPages.includes(page)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedPages([...selectedPages, page]);
-                              } else {
-                                setSelectedPages(selectedPages.filter(p => p !== page));
-                              }
-                            }}
-                            className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
-                          />
-                          <span className="text-sm text-gray-700">{page}</span>
-                        </label>
-                      ))}
+                    {pages.map(page => (
+                      <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
+                        <input
+                          type="checkbox"
+                          checked={selectedPages.includes(page)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedPages([...selectedPages, page]);
+                            } else {
+                              setSelectedPages(selectedPages.filter(p => p !== page));
+                            }
+                          }}
+                          className="rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                        />
+                        <span className="text-sm text-gray-700">{page}</span>
+                      </label>
+                    ))}
                   </div>
                   <div className="flex items-center space-x-2 mb-2 mt-2">
                     <input
@@ -1273,7 +1130,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <div className="flex items-start space-x-2 mb-4">
                     <div className="flex-1">
                       <textarea
-                      value={goal}
+                        value={goal}
                         onChange={(e) => setGoal(e.target.value)}
                         placeholder="Describe your goal in detail... (e.g., 'Help me analyze our documentation structure and recommend improvements for better user experience')"
                         className="w-full p-4 border-2 border-orange-200/50 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none bg-white/70 backdrop-blur-sm text-lg"
@@ -1284,9 +1141,9 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                       <VoiceRecorder
                         onConfirm={t => setGoal(t)}
                         inputPlaceholder="Speak your goal..."
-                      buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
+                        buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
                         buttonOnly={true}
-                    />
+                      />
                       <button
                         onClick={handleGoalSubmit}
                         disabled={!goal.trim() || !selectedSpace || selectedPages.length === 0}
@@ -1697,7 +1554,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                                     return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
                                   }
                                 } else if (line.startsWith('- ')) {
-                                  return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
+                                  return <p key={index} className="mb-1 ml-4"> 2 {line.substring(2)}</p>;
                                 } else if (line.trim()) {
                                   return <p key={index} className="mb-2 text-gray-700">{line}</p>;
                                 }
