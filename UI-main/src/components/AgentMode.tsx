@@ -404,16 +404,15 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
       const usedInstructions = new Set<string>();
       
-      // First pass: Match exact content type matches
+      // Create a mapping of page content types to available instructions
+      const pageToInstructions: { page: string, pageType: string, availableInstructions: Array<{ instruction: string, tools: string[], score: number }> }[] = [];
+      
+      // For each page, find all compatible instructions and score them
       for (const page of selectedPages) {
         const pageType = pageContentTypes.get(page) || 'text';
-        
-        // Find the best matching instruction for this page
-        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
-        let bestScore = -1;
+        const availableInstructions: Array<{ instruction: string, tools: string[], score: number }> = [];
         
         for (const { instruction, tools } of instructionTools) {
-          // Skip if this instruction has already been used
           if (usedInstructions.has(instruction)) continue;
           
           const lowerInstruction = instruction.toLowerCase();
@@ -444,58 +443,53 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
             score += 100;
           }
           
-          // Update best match if this score is higher
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = { instruction, tool: tools[0] || 'ai_powered_search' };
+          // Only add instructions that have some compatibility
+          if (score > 0) {
+            availableInstructions.push({ instruction, tools, score });
           }
         }
         
-        // If we found a good match, use it
-        if (bestScore > 0) {
-          usedInstructions.add(bestMatch.instruction);
-          pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
+        // Sort by score (highest first)
+        availableInstructions.sort((a, b) => b.score - a.score);
+        pageToInstructions.push({ page, pageType, availableInstructions });
+      }
+      
+      // Sort pages by their best available instruction score (highest first)
+      pageToInstructions.sort((a, b) => {
+        const aBestScore = a.availableInstructions.length > 0 ? a.availableInstructions[0].score : 0;
+        const bBestScore = b.availableInstructions.length > 0 ? b.availableInstructions[0].score : 0;
+        return bBestScore - aBestScore;
+      });
+      
+      // Assign instructions to pages starting with the best matches
+      for (const { page, availableInstructions } of pageToInstructions) {
+        if (availableInstructions.length > 0) {
+          const bestInstruction = availableInstructions[0];
+          usedInstructions.add(bestInstruction.instruction);
+          pageInstructions.push({ 
+            page, 
+            instruction: bestInstruction.instruction, 
+            tool: bestInstruction.tools[0] || 'ai_powered_search' 
+          });
         }
       }
       
-      // Second pass: Handle remaining pages with unused instructions
+      // Handle any remaining pages that don't have instructions yet
       for (const page of selectedPages) {
-        // Skip if this page already has an instruction
-        if (pageInstructions.some(pi => pi.page === page)) continue;
-        
-        const pageType = pageContentTypes.get(page) || 'text';
-        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
-        
-        // Find any unused instruction that can work with this page type
-        for (const { instruction, tools } of instructionTools) {
-          if (!usedInstructions.has(instruction)) {
-            // Check if any tool in this instruction can work with this page type
-            if (tools.some(tool => {
-              if (pageType === 'video' && tool === 'video_summarizer') return true;
-              if (pageType === 'image' && tool === 'image_insights') return true;
-              if (pageType === 'code' && tool === 'code_assistant') return true;
-              if (pageType === 'text' && tool === 'ai_powered_search') return true;
-              return false;
-            })) {
-              bestMatch = { instruction, tool: tools[0] };
-              break;
-            }
-          }
-        }
-        
-        // If no specific match found, use the first available unused instruction
-        if (bestMatch.instruction === instructions[0]) {
+        if (!pageInstructions.some(pi => pi.page === page)) {
+          // Find any unused instruction
           for (const { instruction, tools } of instructionTools) {
             if (!usedInstructions.has(instruction) && tools.length > 0) {
-              bestMatch = { instruction, tool: tools[0] };
+              usedInstructions.add(instruction);
+              pageInstructions.push({ 
+                page, 
+                instruction, 
+                tool: tools[0] 
+              });
               break;
             }
           }
         }
-        
-        // Mark this instruction as used and add to page instructions
-        usedInstructions.add(bestMatch.instruction);
-        pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
       }
       
       for (const { page, instruction, tool } of pageInstructions) {
