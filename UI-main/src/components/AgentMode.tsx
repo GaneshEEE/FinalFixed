@@ -401,21 +401,20 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       }
       
       // Match instructions to pages based on content type and required tools
+      // Execute in the order of user instructions, not selected pages
       const pageInstructions: { page: string, instruction: string, tool: string, instructionIndex: number }[] = [];
-      const usedInstructions = new Set<string>();
       const usedPages = new Set<string>();
       
-      // First, assign each instruction to the best matching page based on content type
+      // Process instructions in the order they were given by the user
       for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
         const { instruction, tools } = instructionTools[instructionIndex];
         const lowerInstruction = instruction.toLowerCase();
         
         // Find the best matching page for this instruction
-        let bestPage = '';
-        let bestScore = -1;
+        let bestMatch = { page: '', score: -1, tool: 'ai_powered_search' };
         
         for (const page of selectedPages) {
-          // Skip if this page is already assigned
+          // Skip if this page has already been used
           if (usedPages.has(page)) continue;
           
           const pageType = pageContentTypes.get(page) || 'text';
@@ -446,37 +445,30 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
             score += 100;
           }
           
-          // Update best page if this score is higher
-          if (score > bestScore) {
-            bestScore = score;
-            bestPage = page;
+          // Update best match if this score is higher
+          if (score > bestMatch.score) {
+            bestMatch = { page, score, tool: tools[0] || 'ai_powered_search' };
           }
         }
         
         // If we found a good match, assign it
-        if (bestPage && bestScore > 0) {
-          usedPages.add(bestPage);
+        if (bestMatch.score > 0) {
+          usedPages.add(bestMatch.page);
           pageInstructions.push({ 
-            page: bestPage, 
+            page: bestMatch.page, 
             instruction, 
-            tool: tools[0] || 'ai_powered_search',
+            tool: bestMatch.tool,
             instructionIndex 
           });
-        }
-      }
-      
-      // Handle any remaining pages that don't have instructions yet
-      for (const page of selectedPages) {
-        if (!usedPages.has(page)) {
-          // Find any unused instruction
-          for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
-            const { instruction, tools } = instructionTools[instructionIndex];
-            if (!usedInstructions.has(instruction) && tools.length > 0) {
-              usedInstructions.add(instruction);
+        } else {
+          // If no good match found, assign to the first available unused page
+          for (const page of selectedPages) {
+            if (!usedPages.has(page)) {
+              usedPages.add(page);
               pageInstructions.push({ 
                 page, 
                 instruction, 
-                tool: tools[0],
+                tool: tools[0] || 'ai_powered_search',
                 instructionIndex 
               });
               break;
@@ -485,7 +477,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         }
       }
       
-      // Sort by instruction index to maintain execution order
+      // Sort pageInstructions by instructionIndex to maintain user instruction order
       pageInstructions.sort((a, b) => a.instructionIndex - b.instructionIndex);
       
       for (const { page, instruction, tool, instructionIndex } of pageInstructions) {
