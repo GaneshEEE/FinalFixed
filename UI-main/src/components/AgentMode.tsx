@@ -1554,7 +1554,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                                     return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
                                   }
                                 } else if (line.startsWith('- ')) {
-                                  return <p key={index} className="mb-1 ml-4"> 2 {line.substring(2)}</p>;
+                                  return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
                                 } else if (line.trim()) {
                                   return <p key={index} className="mb-2 text-gray-700">{line}</p>;
                                 }
