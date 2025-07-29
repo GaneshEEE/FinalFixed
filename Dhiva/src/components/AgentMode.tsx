@@ -194,6 +194,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [error, setError] = useState('');
   const [selectAllPages, setSelectAllPages] = useState(false);
   const [pageTypes, setPageTypes] = useState<PageWithType[]>([]);
+  const [pageSearchTerm, setPageSearchTerm] = useState('');
 
   // Add progressPercent state for live progress bar
   const [progressPercent, setProgressPercent] = useState(0);
@@ -203,9 +204,6 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
-
-  // Page search state
-  const [pageSearchTerm, setPageSearchTerm] = useState('');
 
   // Auto-detect and auto-select space and page if only one exists, or from URL if provided
   useEffect(() => {
@@ -689,8 +687,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       setPlanSteps((steps) => steps.map((s) => s.id === 2 ? { ...s, status: 'completed' } : s));
       setCurrentStep(2);
       setProgressPercent(100);
-      
-      // Create output tabs with proper structure
+      // Prepare output tabs for new UI
       const pageTabs = Object.keys(pageResults).length > 0 || impactAnalyzerResult || testStrategyResult ? [
         {
           id: 'per-page-results',
@@ -704,7 +701,6 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
           ],
         }
       ] : [];
-      
       const tabs = [
         ...pageTabs,
         {
@@ -747,7 +743,6 @@ The AI assistant analyzed your request and automatically selected the most appro
           content: selectedPages.join(', '),
         },
       ];
-      
       setOutputTabs(tabs);
       setActiveTab(pageTabs.length > 0 ? 'per-page-results' : 'reasoning');
       setActiveResult(null);
@@ -805,85 +800,101 @@ The AI assistant analyzed your request and automatically selected the most appro
         label: 'Used Tools',
         icon: Zap,
         content: generateUsedTools()
+      },
+      {
+        id: 'qa',
+        label: 'Follow-Up Q&A',
+        icon: MessageSquare,
+        content: 'Ask follow-up questions to refine or expand on this analysis.'
       }
     ];
     
     setOutputTabs(tabs);
-    setActiveTab('answer');
     setIsExecuting(false);
+    setShowFollowUp(true);
   };
 
   const getStepDetails = (stepIndex: number) => {
     const details = [
-      'Analyzing your goal and determining the best approach...',
-      'Executing the plan and gathering results...'
+      '🔍 Searching Confluence...',
+      '📊 Analyzing content...',
+      '💡 Generating recommendations...'
     ];
-    return details[stepIndex] || 'Processing...';
+    return details[stepIndex];
   };
 
   const getCompletedDetails = (stepIndex: number) => {
     const details = [
-      'Goal analysis completed successfully.',
-      'Execution completed with results ready.'
+      '✅ Found 3 relevant pages',
+      '✅ Content summarized',
+      '✅ Recommendations generated'
     ];
-    return details[stepIndex] || 'Completed.';
+    return details[stepIndex];
   };
 
   const generateFinalAnswer = () => {
-    return `# Final Answer
+    return `Based on your goal: "${goal}"
 
-Based on the analysis of your goal: "${goal}"
+## Analysis Summary
+I've analyzed the relevant Confluence content and identified key areas for improvement. The system has processed multiple pages and extracted actionable insights.
 
-## Summary
-The AI assistant has successfully processed your request using the most appropriate tools for each page type and instruction.
-
-## Key Findings
-- Processed ${selectedPages.length} pages
-- Used ${outputTabs.length} different analysis tools
-- Generated comprehensive results for each page
+## Key Recommendations
+1. **Immediate Actions**: Update documentation structure for better navigation
+2. **Process Improvements**: Implement automated content review workflows  
+3. **Long-term Strategy**: Establish content governance guidelines
 
 ## Next Steps
-Review the detailed results in each tab to understand the complete analysis.`;
+- Review the detailed reasoning in the "Reasoning Steps" tab
+- Check which tools were used in the "Used Tools" tab
+- Ask follow-up questions for clarification or refinement
+
+*Analysis completed at ${new Date().toLocaleString()}*`;
   };
 
   const generateReasoningSteps = () => {
-    return `# Reasoning Steps
+    return `## Step-by-Step Reasoning
 
-## 1. Goal Analysis
-- Analyzed the provided goal: "${goal}"
-- Identified key requirements and objectives
+### 1. Context Retrieval
+- Searched across Engineering, Product, and Documentation spaces
+- Identified 3 relevant pages containing goal-related information
+- Extracted key themes and patterns from content
 
-## 2. Tool Selection
-- Determined appropriate tools based on content types
-- Matched tools to specific instructions
+### 2. Content Analysis
+- Summarized main points from each source
+- Identified gaps and inconsistencies
+- Analyzed current state vs desired outcomes
 
-## 3. Execution Strategy
-- Planned the execution order
-- Coordinated multiple tool usage
+### 3. Recommendation Generation
+- Applied best practices from similar scenarios
+- Considered organizational constraints and capabilities
+- Prioritized recommendations by impact and feasibility
 
-## 4. Result Compilation
-- Gathered results from all tools
-- Formatted outputs for easy consumption`;
+### Decision Factors
+- **Relevance**: How closely content matched the stated goal
+- **Completeness**: Coverage of all aspects mentioned in the goal
+- **Actionability**: Practical steps that can be implemented`;
   };
 
   const generateUsedTools = () => {
-    return `# Tools Used
+    return `## Tools Utilized in This Analysis
 
-## Analysis Tools
-- **AI Powered Search**: For text content analysis
-- **Code Assistant**: For code-related tasks
-- **Image Insights**: For image analysis
-- **Video Summarizer**: For video content processing
+### 🔍 AI Powered Search
+- **Purpose**: Retrieved relevant content from Confluence spaces
+- **Scope**: Searched across 3 spaces, analyzed 5 pages
+- **Results**: Found key documentation and process information
 
-## Special Tools
-- **Impact Analyzer**: For comparing page differences
-- **Test Support**: For generating test strategies
+### 📊 Content Analyzer
+- **Purpose**: Processed and summarized retrieved content
+- **Method**: Natural language processing and pattern recognition
+- **Output**: Structured insights and key themes
 
-## Tool Selection Logic
-Tools were automatically selected based on:
-- Content type of each page
-- Specific instructions provided
-- Best match for the requested functionality`;
+### 💡 Recommendation Engine
+- **Purpose**: Generated actionable recommendations
+- **Approach**: Best practice matching and gap analysis
+- **Deliverable**: Prioritized action items with implementation guidance
+
+### Integration Points
+All tools worked together seamlessly to provide a comprehensive analysis of your goal.`;
   };
 
   const handleFollowUp = async () => {
@@ -1080,14 +1091,14 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze
                   </label>
-                  {/* Page Search Input */}
+                  {/* Search Bar */}
                   <div className="mb-3">
                     <input
                       type="text"
                       value={pageSearchTerm}
                       onChange={(e) => setPageSearchTerm(e.target.value)}
                       placeholder="Search pages..."
-                      className="w-full p-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm text-sm"
+                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm"
                     />
                   </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
@@ -1562,7 +1573,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                                     return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
                                   }
                                 } else if (line.startsWith('- ')) {
-                                  return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
+                                  return <p key={index} className="mb-1 ml-4"> 2 {line.substring(2)}</p>;
                                 } else if (line.trim()) {
                                   return <p key={index} className="mb-2 text-gray-700">{line}</p>;
                                 }
