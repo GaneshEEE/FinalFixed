@@ -56,31 +56,11 @@ const codeAiActionPromptMap = (code: string): { [key: string]: string } => ({
 
 // Helper to split user input into actionable instructions
 function splitInstructions(input: string): string[] {
-  // Split on common instruction separators, but be more careful about preserving context
-  const instructions = input
+  // Split on common instruction separators
+  return input
     .split(/\band\b|\bthen\b|\n|\r|\r\n|\.|;|,|\|\||\|\s/i)
     .map(instr => instr.trim())
     .filter(instr => instr.length > 0 && instr.length > 3); // Filter out very short fragments
-  
-  // If we only have one instruction, don't split it further
-  if (instructions.length === 1) {
-    return instructions;
-  }
-  
-  // For multiple instructions, try to preserve page-specific context
-  const refinedInstructions: string[] = [];
-  
-  for (const instruction of instructions) {
-    // If instruction mentions specific page names, keep it as is
-    if (/page|image|code|video|text/i.test(instruction)) {
-      refinedInstructions.push(instruction);
-    } else {
-      // For generic instructions, keep them as is
-      refinedInstructions.push(instruction);
-    }
-  }
-  
-  return refinedInstructions;
 }
 
 // Helper to split a single instruction with multiple related actions (e.g., 'optimize and convert')
@@ -352,18 +332,18 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
           tools.push('video_summarizer');
         }
         
-        // Detect image-related instructions (more specific)
-        if (/image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|image.*analyze/.test(lowerInstruction)) {
+        // Detect image-related instructions
+        if (/image|chart|diagram|visual|image.*summarize|summarize.*image/.test(lowerInstruction)) {
           tools.push('image_insights');
         }
         
-        // Detect code-related instructions (more specific)
-        if (/convert.*language|language.*convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code.*convert|convert.*code/.test(lowerInstruction)) {
+        // Detect code-related instructions
+        if (/convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code/.test(lowerInstruction)) {
           tools.push('code_assistant');
         }
         
-        // Detect text-related instructions (more specific)
-        if (/text|summarize.*text|text.*summarize|summarize.*page|page.*summarize|summarize/.test(lowerInstruction)) {
+        // Detect text-related instructions
+        if (/text|summarize.*text|text.*summarize/.test(lowerInstruction)) {
           tools.push('ai_powered_search');
         }
         
@@ -391,113 +371,45 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         pageContentTypes.set(page, type);
       }
       
-      // Improved instruction-to-page matching algorithm
+      // Match instructions to pages based on content type and required tools
       const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
-      const usedInstructions = new Set<string>();
       
-      // First pass: Try to match instructions that explicitly mention page names
       for (const page of selectedPages) {
         const pageType = pageContentTypes.get(page) || 'text';
-        let matchedInstruction: string | null = null;
-        let matchedTool: string | null = null;
         
-        // Look for instructions that explicitly mention this page name
+        // Find the best matching instruction for this page
+        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
+        
         for (const { instruction, tools } of instructionTools) {
           const lowerInstruction = instruction.toLowerCase();
-          const lowerPageName = page.toLowerCase();
           
-          // Check if instruction mentions this specific page
-          if (lowerInstruction.includes(lowerPageName) || 
-              lowerInstruction.includes(lowerPageName.replace(/\s+/g, '_')) ||
-              lowerInstruction.includes(lowerPageName.replace(/\s+/g, '-'))) {
-            
-            // Find the best tool for this instruction and page type
-            let bestTool = 'ai_powered_search';
-            
-            if (pageType === 'video' && tools.includes('video_summarizer')) {
-              bestTool = 'video_summarizer';
-            } else if (pageType === 'image' && tools.includes('image_insights')) {
-              bestTool = 'image_insights';
-            } else if (pageType === 'code' && tools.includes('code_assistant')) {
-              bestTool = 'code_assistant';
-            } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
-              bestTool = 'ai_powered_search';
-            } else if (tools.length > 0) {
-              bestTool = tools[0];
-            }
-            
-            matchedInstruction = instruction;
-            matchedTool = bestTool;
-            usedInstructions.add(instruction);
+          // Match based on content type
+          if (pageType === 'video' && tools.includes('video_summarizer')) {
+            bestMatch = { instruction, tool: 'video_summarizer' };
+            break;
+          } else if (pageType === 'image' && tools.includes('image_insights')) {
+            bestMatch = { instruction, tool: 'image_insights' };
+            break;
+          } else if (pageType === 'code' && tools.includes('code_assistant')) {
+            bestMatch = { instruction, tool: 'code_assistant' };
+            break;
+          } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
+            bestMatch = { instruction, tool: 'ai_powered_search' };
             break;
           }
         }
         
-        // If no explicit page name match, try content type matching
-        if (!matchedInstruction) {
+        // If no specific match found, use the first available tool
+        if (bestMatch.tool === 'ai_powered_search') {
           for (const { instruction, tools } of instructionTools) {
-            if (usedInstructions.has(instruction)) continue;
-            
-            const lowerInstruction = instruction.toLowerCase();
-            let bestTool = 'ai_powered_search';
-            
-            // Match based on content type and instruction keywords
-            if (pageType === 'video' && tools.includes('video_summarizer')) {
-              bestTool = 'video_summarizer';
-            } else if (pageType === 'image' && tools.includes('image_insights')) {
-              bestTool = 'image_insights';
-            } else if (pageType === 'code' && tools.includes('code_assistant')) {
-              bestTool = 'code_assistant';
-            } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
-              bestTool = 'ai_powered_search';
-            } else if (tools.length > 0) {
-              bestTool = tools[0];
-            }
-            
-            // Additional keyword matching for better accuracy
-            if (pageType === 'image' && /image|chart|diagram|visual/.test(lowerInstruction)) {
-              bestTool = 'image_insights';
-            } else if (pageType === 'code' && /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code/.test(lowerInstruction)) {
-              bestTool = 'code_assistant';
-            } else if (pageType === 'video' && /video|summarize.*video|transcribe/.test(lowerInstruction)) {
-              bestTool = 'video_summarizer';
-            }
-            
-            matchedInstruction = instruction;
-            matchedTool = bestTool;
-            usedInstructions.add(instruction);
-            break;
-          }
-        }
-        
-        // If still no match, use the first available instruction
-        if (!matchedInstruction) {
-          for (const { instruction, tools } of instructionTools) {
-            if (usedInstructions.has(instruction)) continue;
-            
-            let bestTool = 'ai_powered_search';
             if (tools.length > 0) {
-              bestTool = tools[0];
+              bestMatch = { instruction, tool: tools[0] };
+              break;
             }
-            
-            matchedInstruction = instruction;
-            matchedTool = bestTool;
-            usedInstructions.add(instruction);
-            break;
           }
         }
         
-        // If no instruction available, use a default one
-        if (!matchedInstruction) {
-          matchedInstruction = instructions[0] || 'Analyze this content';
-          matchedTool = 'ai_powered_search';
-        }
-        
-        pageInstructions.push({ 
-          page, 
-          instruction: matchedInstruction, 
-          tool: matchedTool 
-        });
+        pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
       }
       
       for (const { page, instruction, tool } of pageInstructions) {
