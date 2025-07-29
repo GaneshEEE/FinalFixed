@@ -418,65 +418,56 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         availablePagesByType[pageType as keyof typeof availablePagesByType].push(page);
       }
       
-      // Create a mapping of instructions to their required content types
-      const instructionToContentType: { instruction: string, requiredContentType: string, tools: string[], instructionIndex: number }[] = [];
-      
+      // Process each instruction in user order and assign to correct page type
       for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
         const { instruction, tools } = instructionTools[instructionIndex];
         const lowerInstruction = instruction.toLowerCase();
         
         // Determine the required content type for this instruction
         let requiredContentType = 'text'; // default
+        let targetTool = 'ai_powered_search';
+        
         if (tools.includes('video_summarizer') || /video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
           requiredContentType = 'video';
+          targetTool = 'video_summarizer';
         } else if (tools.includes('image_insights') || /image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
           requiredContentType = 'image';
+          targetTool = 'image_insights';
         } else if (tools.includes('code_assistant') || /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
           requiredContentType = 'code';
+          targetTool = 'code_assistant';
         }
         
-        instructionToContentType.push({ instruction, requiredContentType, tools, instructionIndex });
-      }
-      
-      // Create a mapping to ensure each instruction gets the correct page type
-      const instructionToPageMapping: { [key: string]: string } = {};
-      
-      // First pass: Assign specific content type instructions to their matching pages
-      for (const { instruction, requiredContentType, tools, instructionIndex } of instructionToContentType) {
+        // Find the correct page for this instruction
+        let assignedPage = '';
         const pagesOfRequiredType = availablePagesByType[requiredContentType as keyof typeof availablePagesByType];
         
-        // Find an available page of the required content type
+        // First, try to find an unused page of the exact required content type
         for (const page of pagesOfRequiredType) {
           if (!usedPages.has(page)) {
-            instructionToPageMapping[instruction] = page;
+            assignedPage = page;
             usedPages.add(page);
             break;
           }
         }
-      }
-      
-      // Second pass: Handle any remaining instructions
-      for (const { instruction, requiredContentType, tools, instructionIndex } of instructionToContentType) {
-        if (!instructionToPageMapping[instruction]) {
-          // Find any unused page
+        
+        // If no page of required type available, find any unused page
+        if (!assignedPage) {
           for (const page of selectedPages) {
             if (!usedPages.has(page)) {
-              instructionToPageMapping[instruction] = page;
+              assignedPage = page;
               usedPages.add(page);
               break;
             }
           }
         }
-      }
-      
-      // Create pageInstructions in the order of user instructions
-      for (const { instruction, requiredContentType, tools, instructionIndex } of instructionToContentType) {
-        const assignedPage = instructionToPageMapping[instruction];
+        
+        // Add to pageInstructions
         if (assignedPage) {
           pageInstructions.push({ 
             page: assignedPage, 
             instruction, 
-            tool: tools[0] || 'ai_powered_search',
+            tool: targetTool,
             instructionIndex 
           });
         }
