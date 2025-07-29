@@ -279,14 +279,20 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
 
   // Sync "Select All" checkbox state
   useEffect(() => {
-    setSelectAllPages(pages.length > 0 && selectedPages.length === pages.length);
-  }, [selectedPages, pages]);
+    const filteredPages = pages.filter(page => 
+      page.toLowerCase().includes(pageSearchTerm.toLowerCase())
+    );
+    setSelectAllPages(filteredPages.length > 0 && selectedPages.length === filteredPages.length);
+  }, [selectedPages, pages, pageSearchTerm]);
 
   const toggleSelectAllPages = () => {
+    const filteredPages = pages.filter(page => 
+      page.toLowerCase().includes(pageSearchTerm.toLowerCase())
+    );
     if (selectAllPages) {
       setSelectedPages([]);
     } else {
-      setSelectedPages([...pages]);
+      setSelectedPages([...filteredPages]);
     }
     setSelectAllPages(!selectAllPages);
   };
@@ -376,66 +382,42 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       
       // Match instructions to pages based on content type and required tools
       const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
-      const usedInstructions = new Set<string>();
       
       for (const page of selectedPages) {
         const pageType = pageContentTypes.get(page) || 'text';
         
         // Find the best matching instruction for this page
-        let bestMatch = { instruction: '', tool: 'ai_powered_search' };
-        let bestScore = -1;
+        let bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
         
         for (const { instruction, tools } of instructionTools) {
-          // Skip if this instruction has already been used
-          if (usedInstructions.has(instruction)) continue;
-          
           const lowerInstruction = instruction.toLowerCase();
-          let score = 0;
           
-          // Score based on content type matching
+          // Match based on content type
           if (pageType === 'video' && tools.includes('video_summarizer')) {
-            score += 100;
+            bestMatch = { instruction, tool: 'video_summarizer' };
+            break;
           } else if (pageType === 'image' && tools.includes('image_insights')) {
-            score += 100;
+            bestMatch = { instruction, tool: 'image_insights' };
+            break;
           } else if (pageType === 'code' && tools.includes('code_assistant')) {
-            score += 100;
+            bestMatch = { instruction, tool: 'code_assistant' };
+            break;
           } else if (pageType === 'text' && tools.includes('ai_powered_search')) {
-            score += 50;
-          }
-          
-          // Additional scoring based on instruction content
-          if (pageType === 'video' && /video|summarize.*video|transcribe/i.test(lowerInstruction)) {
-            score += 50;
-          } else if (pageType === 'image' && /image|chart|diagram|visual/i.test(lowerInstruction)) {
-            score += 50;
-          } else if (pageType === 'code' && /code|debug|refactor|optimize|performance/i.test(lowerInstruction)) {
-            score += 50;
-          } else if (pageType === 'text' && /summarize|analyze|text/i.test(lowerInstruction)) {
-            score += 25;
-          }
-          
-          if (score > bestScore) {
-            bestScore = score;
-            bestMatch = { instruction, tool: tools[0] || 'ai_powered_search' };
+            bestMatch = { instruction, tool: 'ai_powered_search' };
+            break;
           }
         }
         
-        // If no good match found, use the first unused instruction
-        if (bestMatch.instruction === '') {
+        // If no specific match found, use the first available tool
+        if (bestMatch.tool === 'ai_powered_search') {
           for (const { instruction, tools } of instructionTools) {
-            if (!usedInstructions.has(instruction)) {
-              bestMatch = { instruction, tool: tools[0] || 'ai_powered_search' };
+            if (tools.length > 0) {
+              bestMatch = { instruction, tool: tools[0] };
               break;
             }
           }
         }
         
-        // If still no instruction found, use the first instruction as fallback
-        if (bestMatch.instruction === '') {
-          bestMatch = { instruction: instructions[0], tool: 'ai_powered_search' };
-        }
-        
-        usedInstructions.add(bestMatch.instruction);
         pageInstructions.push({ page, instruction: bestMatch.instruction, tool: bestMatch.tool });
       }
       
@@ -983,10 +965,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
                     {pages
-                      .filter(page => 
-                        pageSearchTerm === '' || 
-                        page.toLowerCase().includes(pageSearchTerm.toLowerCase())
-                      )
+                      .filter(page => page.toLowerCase().includes(pageSearchTerm.toLowerCase()))
                       .map(page => (
                         <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
                           <input
@@ -1029,22 +1008,29 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                 <h3 className="text-2xl font-bold text-gray-800 mb-6">What do you want the assistant to help you achieve?</h3>
                 <div className="relative">
                   {/* Combined Voice Recorder and Textarea for goal input */}
-                  <div className="mb-4">
-                    <VoiceRecorder
-                      value={goal}
-                      onChange={setGoal}
-                      onConfirm={setGoal}
-                      inputPlaceholder="Describe your goal in detail..."
-                      buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
-                    />
-                    <div className="flex justify-center mt-4">
+                  <div className="flex items-start space-x-2 mb-4">
+                    <div className="flex-1">
+                      <textarea
+                        value={goal}
+                        onChange={(e) => setGoal(e.target.value)}
+                        placeholder="Describe your goal in detail... (e.g., 'Help me analyze our documentation structure and recommend improvements for better user experience')"
+                        className="w-full p-4 border-2 border-orange-200/50 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none bg-white/70 backdrop-blur-sm text-lg"
+                        rows={4}
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-2">
+                      <VoiceRecorder
+                        onConfirm={t => setGoal(t)}
+                        inputPlaceholder="Speak your goal..."
+                        buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
+                        buttonOnly={true}
+                      />
                       <button
                         onClick={handleGoalSubmit}
                         disabled={!goal.trim() || !selectedSpace || selectedPages.length === 0}
-                        className="bg-orange-500/90 backdrop-blur-sm text-white px-6 py-3 rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors border border-white/10"
+                        className="bg-orange-500/90 backdrop-blur-sm text-white p-3 rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors border border-white/10"
                       >
                         <Send className="w-5 h-5" />
-                        <span>Submit Goal</span>
                       </button>
                     </div>
                   </div>
@@ -1420,6 +1406,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                                         onConfirm={(transcript) => setFollowUpQuestion(transcript)}
                                         inputPlaceholder="Speak your question..."
                                         buttonClassName="bg-orange-500/90 text-white hover:bg-orange-600 border-orange-500"
+                                        buttonOnly={true}
                                       />
                                       <button
                                         onClick={handleFollowUp}
