@@ -401,21 +401,24 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
       }
       
       // Match instructions to pages based on content type and required tools
-      const pageInstructions: { page: string, instruction: string, tool: string }[] = [];
+      const pageInstructions: { page: string, instruction: string, tool: string, instructionIndex: number }[] = [];
       const usedInstructions = new Set<string>();
+      const usedPages = new Set<string>();
       
-      // Create a mapping of page content types to available instructions
-      const pageToInstructions: { page: string, pageType: string, availableInstructions: Array<{ instruction: string, tools: string[], score: number }> }[] = [];
-      
-      // For each page, find all compatible instructions and score them
-      for (const page of selectedPages) {
-        const pageType = pageContentTypes.get(page) || 'text';
-        const availableInstructions: Array<{ instruction: string, tools: string[], score: number }> = [];
+      // First, assign each instruction to the best matching page based on content type
+      for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
+        const { instruction, tools } = instructionTools[instructionIndex];
+        const lowerInstruction = instruction.toLowerCase();
         
-        for (const { instruction, tools } of instructionTools) {
-          if (usedInstructions.has(instruction)) continue;
+        // Find the best matching page for this instruction
+        let bestPage = '';
+        let bestScore = -1;
+        
+        for (const page of selectedPages) {
+          // Skip if this page is already assigned
+          if (usedPages.has(page)) continue;
           
-          const lowerInstruction = instruction.toLowerCase();
+          const pageType = pageContentTypes.get(page) || 'text';
           let score = 0;
           
           // Perfect content type matches get highest priority
@@ -443,48 +446,38 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
             score += 100;
           }
           
-          // Only add instructions that have some compatibility
-          if (score > 0) {
-            availableInstructions.push({ instruction, tools, score });
+          // Update best page if this score is higher
+          if (score > bestScore) {
+            bestScore = score;
+            bestPage = page;
           }
         }
         
-        // Sort by score (highest first)
-        availableInstructions.sort((a, b) => b.score - a.score);
-        pageToInstructions.push({ page, pageType, availableInstructions });
-      }
-      
-      // Sort pages by their best available instruction score (highest first)
-      pageToInstructions.sort((a, b) => {
-        const aBestScore = a.availableInstructions.length > 0 ? a.availableInstructions[0].score : 0;
-        const bBestScore = b.availableInstructions.length > 0 ? b.availableInstructions[0].score : 0;
-        return bBestScore - aBestScore;
-      });
-      
-      // Assign instructions to pages starting with the best matches
-      for (const { page, availableInstructions } of pageToInstructions) {
-        if (availableInstructions.length > 0) {
-          const bestInstruction = availableInstructions[0];
-          usedInstructions.add(bestInstruction.instruction);
+        // If we found a good match, assign it
+        if (bestPage && bestScore > 0) {
+          usedPages.add(bestPage);
           pageInstructions.push({ 
-            page, 
-            instruction: bestInstruction.instruction, 
-            tool: bestInstruction.tools[0] || 'ai_powered_search' 
+            page: bestPage, 
+            instruction, 
+            tool: tools[0] || 'ai_powered_search',
+            instructionIndex 
           });
         }
       }
       
       // Handle any remaining pages that don't have instructions yet
       for (const page of selectedPages) {
-        if (!pageInstructions.some(pi => pi.page === page)) {
+        if (!usedPages.has(page)) {
           // Find any unused instruction
-          for (const { instruction, tools } of instructionTools) {
+          for (let instructionIndex = 0; instructionIndex < instructionTools.length; instructionIndex++) {
+            const { instruction, tools } = instructionTools[instructionIndex];
             if (!usedInstructions.has(instruction) && tools.length > 0) {
               usedInstructions.add(instruction);
               pageInstructions.push({ 
                 page, 
                 instruction, 
-                tool: tools[0] 
+                tool: tools[0],
+                instructionIndex 
               });
               break;
             }
@@ -492,7 +485,10 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         }
       }
       
-      for (const { page, instruction, tool } of pageInstructions) {
+      // Sort by instruction index to maintain execution order
+      pageInstructions.sort((a, b) => a.instructionIndex - b.instructionIndex);
+      
+      for (const { page, instruction, tool, instructionIndex } of pageInstructions) {
         const type = pageContentTypes.get(page) || 'text';
         let outputs: string[] = [];
         let formattedOutput = '';
