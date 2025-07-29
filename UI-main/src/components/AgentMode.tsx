@@ -423,19 +423,29 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         const { instruction, tools } = instructionTools[instructionIndex];
         const lowerInstruction = instruction.toLowerCase();
         
-        // Determine the required content type for this instruction
+        // Explicitly determine the required content type and tool for this instruction
         let requiredContentType = 'text'; // default
         let targetTool = 'ai_powered_search';
         
-        if (tools.includes('video_summarizer') || /video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
-          requiredContentType = 'video';
-          targetTool = 'video_summarizer';
-        } else if (tools.includes('image_insights') || /image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
-          requiredContentType = 'image';
-          targetTool = 'image_insights';
-        } else if (tools.includes('code_assistant') || /convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code|programming|script|function|class|method/.test(lowerInstruction)) {
+        // Check for code-related instructions first (most specific)
+        if (/convert.*code|code.*convert|debug.*code|code.*debug|refactor.*code|code.*refactor|fix.*code|code.*fix|bug.*code|code.*bug|error.*code|code.*error|optimize.*code|code.*optimize|performance.*code|code.*performance|documentation.*code|code.*documentation|docs.*code|code.*docs|comment.*code|code.*comment|dead code|unused.*code|code.*unused|logging.*code|code.*logging|log.*code|code.*log|code|programming|script|function|class|method/.test(lowerInstruction)) {
           requiredContentType = 'code';
           targetTool = 'code_assistant';
+        }
+        // Check for image-related instructions
+        else if (/image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|extract.*image|image.*content/.test(lowerInstruction)) {
+          requiredContentType = 'image';
+          targetTool = 'image_insights';
+        }
+        // Check for video-related instructions
+        else if (/video|summarize.*video|transcribe|video.*summarize|extract.*video|video.*content/.test(lowerInstruction)) {
+          requiredContentType = 'video';
+          targetTool = 'video_summarizer';
+        }
+        // Default to text
+        else {
+          requiredContentType = 'text';
+          targetTool = 'ai_powered_search';
         }
         
         // Find the correct page for this instruction
