@@ -214,6 +214,7 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [error, setError] = useState('');
   const [selectAllPages, setSelectAllPages] = useState(false);
   const [pageTypes, setPageTypes] = useState<PageWithType[]>([]);
+  const [pageSearch, setPageSearch] = useState('');
 
   // Add progressPercent state for live progress bar
   const [progressPercent, setProgressPercent] = useState(0);
@@ -1185,8 +1186,20 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Select Pages to Analyze
                   </label>
+                  {/* Search input for pages */}
+                  <div className="mb-2">
+                    <input
+                      type="text"
+                      placeholder="Search pages..."
+                      value={pageSearch}
+                      className="w-full p-2 border border-white/30 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 bg-white/70 backdrop-blur-sm text-sm"
+                      onChange={(e) => setPageSearch(e.target.value)}
+                    />
+                  </div>
                   <div className="space-y-2 max-h-40 overflow-y-auto border border-white/30 rounded-lg p-2 bg-white/50 backdrop-blur-sm">
-                    {pages.map(page => (
+                    {pages
+                      .filter(page => page.toLowerCase().includes(pageSearch.toLowerCase()))
+                      .map(page => (
                       <label key={page} className="flex items-center space-x-2 p-2 hover:bg-white/30 rounded cursor-pointer backdrop-blur-sm">
                         <input
                           type="checkbox"

@@ -7,9 +7,11 @@ interface VoiceRecorderProps {
   buttonClassName?: string;
   inputPlaceholder?: string;
   buttonOnly?: boolean;
+  value?: string;
+  onChange?: (value: string) => void;
 }
 
-const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassName = '', inputPlaceholder = 'Speak or type...', buttonOnly = false }) => {
+const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassName = '', inputPlaceholder = 'Speak or type...', buttonOnly = false, value, onChange }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [pendingTranscript, setPendingTranscript] = useState<string | null>(null);
@@ -82,14 +84,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassNam
   };
 
   return (
-    <div className={`${buttonOnly ? 'inline-block' : 'w-full flex flex-col items-start'} relative`}>
-      {/* Listening indicator */}
-      {isListening && (
-        <div className="absolute left-1/2 -translate-x-1/2 -top-10 flex items-center space-x-2 z-10">
-          <span className="text-blue-600 font-semibold animate-pulse">Listening...</span>
-          <span className="w-3 h-3 rounded-full bg-blue-400 animate-ping"></span>
-        </div>
-      )}
+    <div className={`${buttonOnly ? 'inline-block' : 'w-full'} relative`}>
       {/* Confirmation step after speech recognition */}
       {pendingTranscript ? (
         <div className="flex flex-col items-start w-full mt-2">
@@ -105,30 +100,46 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ onConfirm, buttonClassNam
             >✖️ No</button>
           </div>
         </div>
-              ) : (
-        <>
+      ) : (
+        <div className="flex items-center space-x-2">
           {!buttonOnly && (
-            <input
-              type="text"
-              value={transcript}
-              onChange={e => setTranscript(e.target.value)}
-              placeholder={inputPlaceholder}
-              className="w-full p-2 border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm"
-            />
+            <div className="flex-1 relative">
+              <input
+                type="text"
+                value={value !== undefined ? value : transcript}
+                onChange={e => {
+                  const newValue = e.target.value;
+                  if (onChange) {
+                    onChange(newValue);
+                  } else {
+                    setTranscript(newValue);
+                  }
+                }}
+                placeholder={isListening ? "Listening..." : inputPlaceholder}
+                className="w-full p-2 border border-white/30 rounded focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm"
+                disabled={isListening}
+              />
+              {/* Listening indicator inside input */}
+              {isListening && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-ping"></span>
+                </div>
+              )}
+            </div>
           )}
           <button
             type="button"
-            className={`${buttonOnly ? '' : 'ml-2'} px-2 py-2 rounded-lg border border-gray-300 flex items-center justify-center ${isListening ? 'bg-blue-200 text-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} ${buttonClassName}`}
+            className={`px-2 py-2 rounded-lg border border-gray-300 flex items-center justify-center ${isListening ? 'bg-blue-200 text-blue-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} ${buttonClassName}`}
             onClick={handleMicClick}
             title="Speak"
             disabled={isListening}
           >
             <Mic className={`w-5 h-5 ${isListening ? 'animate-pulse' : ''}`} />
           </button>
-        </>
+        </div>
       )}
       {speechError && (
-        <div className="mt-2 text-xs text-red-500 absolute left-0 top-full">{speechError}</div>
+        <div className="mt-2 text-xs text-red-500">{speechError}</div>
       )}
     </div>
   );
