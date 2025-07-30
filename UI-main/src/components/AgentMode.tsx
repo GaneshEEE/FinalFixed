@@ -347,32 +347,40 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
         const lowerInstruction = instruction.toLowerCase();
         const tools: string[] = [];
         
-        // Detect video-related instructions
-        if (/video|summarize.*video|transcribe|video.*summarize/.test(lowerInstruction)) {
+        // Detect video summarization instructions (highest priority)
+        if (/summarize.*video|video.*summarize|summarise.*video|video.*summarise/.test(lowerInstruction)) {
           tools.push('video_summarizer');
         }
-        
-        // Detect image-related instructions (more specific)
-        if (/image|chart|diagram|visual|image.*summarize|summarize.*image|analyze.*image|image.*analyze/.test(lowerInstruction)) {
+        // Detect image summarization instructions (highest priority)
+        else if (/summarize.*image|image.*summarize|summarise.*image|image.*summarise/.test(lowerInstruction)) {
           tools.push('image_insights');
         }
-        
-        // Detect code-related instructions (more specific)
-        if (/convert.*language|language.*convert|debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log|code.*convert|convert.*code/.test(lowerInstruction)) {
+        // Detect code conversion instructions (highest priority)
+        else if (/convert.*language|language.*convert|convert.*code|code.*convert|to\s+\w+/.test(lowerInstruction)) {
           tools.push('code_assistant');
         }
-        
-        // Detect text-related instructions (more specific)
-        if (/text|summarize.*text|text.*summarize|summarize.*page|page.*summarize|summarize/.test(lowerInstruction)) {
-          tools.push('ai_powered_search');
+        // Detect other video-related instructions
+        else if (/video|transcribe/.test(lowerInstruction)) {
+          tools.push('video_summarizer');
         }
-        
+        // Detect other image-related instructions
+        else if (/image|chart|diagram|visual|analyze.*image|image.*analyze/.test(lowerInstruction)) {
+          tools.push('image_insights');
+        }
+        // Detect other code-related instructions
+        else if (/debug|refactor|fix|bug|error|optimize|performance|documentation|docs|comment|dead code|unused|logging|log/.test(lowerInstruction)) {
+          tools.push('code_assistant');
+        }
         // Detect special tools
-        if (/impact|change|difference|diff/.test(lowerInstruction)) {
+        else if (/impact|change|difference|diff/.test(lowerInstruction)) {
           tools.push('impact_analyzer');
         }
-        if (/test|qa|test case|unit test/.test(lowerInstruction)) {
+        else if (/test|qa|test case|unit test/.test(lowerInstruction)) {
           tools.push('test_support');
+        }
+        // For general summarization (not specific to image/video), use AI Powered Search
+        else if (/summarize|summarise|text|page/.test(lowerInstruction)) {
+          tools.push('ai_powered_search');
         }
         
         // If no specific tool detected, default to AI Powered Search
@@ -493,9 +501,14 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
           matchedTool = 'ai_powered_search';
         }
         
+        // Ensure matchedTool is never null
+        if (!matchedTool) {
+          matchedTool = 'ai_powered_search';
+        }
+        
         pageInstructions.push({ 
           page, 
-          instruction: matchedInstruction, 
+          instruction: matchedInstruction!, 
           tool: matchedTool 
         });
       }
