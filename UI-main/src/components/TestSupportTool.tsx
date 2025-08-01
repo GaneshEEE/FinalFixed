@@ -1258,11 +1258,11 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                             </div>
                           )}
                         </div>
-                        {githubActionsResult.auto_push_result && (
+                        {githubActionsResult.auto_push_result && githubActionsResult.auto_push_result.success && (
                           <div className="mt-4 p-3 rounded-lg border">
                             <h5 className="font-medium text-gray-800 mb-2">Auto-Push Result</h5>
-                            <div className={`text-sm ${githubActionsResult.auto_push_result.success ? 'text-green-700' : 'text-red-700'}`}>
-                              {githubActionsResult.auto_push_result.success ? '✅ Successfully pushed to GitHub' : '❌ Failed to push to GitHub'}
+                            <div className="text-sm text-green-700">
+                              ✅ Successfully pushed to GitHub
                             </div>
                             {githubActionsResult.auto_push_result.files_pushed && githubActionsResult.auto_push_result.files_pushed.length > 0 && (
                               <div className="mt-2">
@@ -1270,16 +1270,6 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                                 <ul className="text-sm text-gray-600 list-disc list-inside">
                                   {githubActionsResult.auto_push_result.files_pushed.map((file: string, index: number) => (
                                     <li key={index}>{file}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {githubActionsResult.auto_push_result.errors && githubActionsResult.auto_push_result.errors.length > 0 && (
-                              <div className="mt-2">
-                                <div className="text-sm font-medium text-red-700">Errors:</div>
-                                <ul className="text-sm text-red-600 list-disc list-inside">
-                                  {githubActionsResult.auto_push_result.errors.map((error: string, index: number) => (
-                                    <li key={index}>{error}</li>
                                   ))}
                                 </ul>
                               </div>
