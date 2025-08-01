@@ -5,6 +5,7 @@ import { apiService } from '../services/api';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import CustomScrollbar from './CustomScrollbar';
 import VoiceRecorder from './VoiceRecorder';
+import { getFeatureConfig } from '../utils/featureConfig';
 
 interface ImageInsightsProps {
   onClose: () => void;
@@ -211,6 +212,9 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
     { id: 'image' as const, label: 'Chart Builder', icon: BarChart3 },
   ];
+
+  // Get current feature configuration for dynamic title
+  const currentFeatureConfig = getFeatureConfig('image');
 
 
 
@@ -908,10 +912,10 @@ ${JSON.stringify(chartData.data, null, 2)}
         <div className="bg-gradient-to-r from-confluence-blue/90 to-confluence-light-blue/90 backdrop-blur-xl p-6 text-white border-b border-white/10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Image className="w-8 h-8" />
+              <currentFeatureConfig.icon className="w-8 h-8" />
               <div>
-                <h2 className="text-2xl font-bold">Confluence AI Assistant</h2>
-                <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
+                <h2 className="text-2xl font-bold">{currentFeatureConfig.title}</h2>
+                <p className="text-blue-100/90">{currentFeatureConfig.description}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">

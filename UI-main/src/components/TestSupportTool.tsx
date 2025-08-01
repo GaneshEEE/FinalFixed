@@ -6,6 +6,7 @@ import CustomScrollbar from './CustomScrollbar';
 import ReactMarkdown from 'react-markdown';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import VoiceRecorder from './VoiceRecorder';
+import { getFeatureConfig } from '../utils/featureConfig';
 
 interface TestSupportToolProps {
   onClose: () => void;
@@ -116,6 +117,9 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
     { id: 'image' as const, label: 'Chart Builder', icon: BarChart3 },
   ];
+
+  // Get current feature configuration for dynamic title
+  const currentFeatureConfig = getFeatureConfig('test');
 
   // Load spaces on component mount
   useEffect(() => {
@@ -445,8 +449,8 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             <div className="flex items-center space-x-3">
               <TestTube className="w-8 h-8" />
               <div>
-                <h2 className="text-2xl font-bold">Confluence AI Assistant</h2>
-                <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
+                <h2 className="text-2xl font-bold">{currentFeatureConfig.title}</h2>
+                <p className="text-blue-100/90">{currentFeatureConfig.description}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">

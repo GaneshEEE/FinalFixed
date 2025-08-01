@@ -23,6 +23,8 @@ from io import BytesIO
 import difflib
 import base64
 from datetime import datetime
+import PyPDF2
+import tempfile
 
 # Load environment variables
 load_dotenv()
@@ -331,6 +333,84 @@ def create_pptx_with_image(image_data_base64, title="Chart"):
     prs.save(buffer)
     buffer.seek(0)
     return buffer
+
+def extract_text_from_file(file_url: str, file_extension: str) -> str:
+    """Extract text content from various file types"""
+    try:
+        # Download the file
+        auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
+        response = requests.get(file_url, auth=auth)
+        if response.status_code != 200:
+            return f"Error: Could not download file from {file_url}"
+        
+        file_content = response.content
+        
+        # Extract text based on file type
+        if file_extension.lower() == '.pdf':
+            return extract_text_from_pdf(file_content)
+        elif file_extension.lower() in ['.docx', '.doc']:
+            return extract_text_from_docx(file_content)
+        elif file_extension.lower() == '.txt':
+            return extract_text_from_txt(file_content)
+        else:
+            return f"Unsupported file type: {file_extension}"
+            
+    except Exception as e:
+        return f"Error extracting text from file: {str(e)}"
+
+def extract_text_from_pdf(pdf_content: bytes) -> str:
+    """Extract text from PDF content"""
+    try:
+        pdf_file = io.BytesIO(pdf_content)
+        pdf_reader = PyPDF2.PdfReader(pdf_file)
+        text = ""
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
+    except Exception as e:
+        return f"Error reading PDF: {str(e)}"
+
+def extract_text_from_docx(docx_content: bytes) -> str:
+    """Extract text from DOCX content"""
+    try:
+        docx_file = io.BytesIO(docx_content)
+        doc = Document(docx_file)
+        text = ""
+        for paragraph in doc.paragraphs:
+            text += paragraph.text + "\n"
+        return text.strip()
+    except Exception as e:
+        return f"Error reading DOCX: {str(e)}"
+
+def extract_text_from_txt(txt_content: bytes) -> str:
+    """Extract text from TXT content"""
+    try:
+        return txt_content.decode('utf-8', errors='ignore').strip()
+    except Exception as e:
+        return f"Error reading TXT: {str(e)}"
+
+def get_page_attachments(confluence, page_id: str) -> List[Dict[str, str]]:
+    """Get all attachments from a Confluence page"""
+    try:
+        attachments = confluence.get_attachments_from_content(page_id, start=0, limit=100)
+        supported_extensions = ['.pdf', '.docx', '.doc', '.txt']
+        
+        file_attachments = []
+        for attachment in attachments.get('results', []):
+            filename = attachment.get('title', '')
+            file_extension = os.path.splitext(filename)[1].lower()
+            
+            if file_extension in supported_extensions:
+                file_attachments.append({
+                    'filename': filename,
+                    'url': attachment.get('_links', {}).get('download', ''),
+                    'extension': file_extension
+                })
+        
+        return file_attachments
+    except Exception as e:
+        print(f"Error getting attachments: {e}")
+        return []
 
 
 def extract_timestamps_from_summary(summary):
@@ -708,6 +788,20 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             raw_html = page_data["body"]["storage"]["value"]
             text_content = clean_html(raw_html)
             full_context += f"\n\nTitle: {page['title']}\n{text_content}"
+            
+            # Get and process attachments
+            attachments = get_page_attachments(confluence, page_id)
+            if attachments:
+                full_context += f"\n\nAttachments in {page['title']}:"
+                for attachment in attachments:
+                    try:
+                        file_text = extract_text_from_file(attachment['url'], attachment['extension'])
+                        if not file_text.startswith("Error"):
+                            full_context += f"\n\nFile: {attachment['filename']}\n{file_text}"
+                        else:
+                            full_context += f"\n\nFile: {attachment['filename']} (Could not extract text)"
+                    except Exception as e:
+                        full_context += f"\n\nFile: {attachment['filename']} (Error: {str(e)})"
         
         # Generate AI response
         prompt = (

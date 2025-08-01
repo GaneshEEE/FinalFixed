@@ -5,6 +5,7 @@ import { apiService, Space } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
 import VoiceRecorder from './VoiceRecorder';
+import { getFeatureConfig } from '../utils/featureConfig';
 
 interface VideoSummarizerProps {
   onClose: () => void;
@@ -82,6 +83,9 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
     { id: 'test' as const, label: 'Test Support Tool', icon: TestTube },
     { id: 'image' as const, label: 'Chart Builder', icon: BarChart3 },
   ];
+
+  // Get current feature configuration for dynamic title
+  const currentFeatureConfig = getFeatureConfig('video');
 
   // Load spaces on component mount
   useEffect(() => {
@@ -387,8 +391,8 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             <div className="flex items-center space-x-3">
               <Video className="w-8 h-8" />
               <div>
-                <h2 className="text-2xl font-bold">Confluence AI Assistant</h2>
-                <p className="text-blue-100/90">AI-powered tools for your Confluence workspace</p>
+                <h2 className="text-2xl font-bold">{currentFeatureConfig.title}</h2>
+                <p className="text-blue-100/90">{currentFeatureConfig.description}</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
