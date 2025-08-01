@@ -337,39 +337,38 @@ def create_pptx_with_image(image_data_base64, title="Chart"):
 def extract_text_from_file(file_url: str, file_extension: str) -> str:
     """Extract text content from various file types"""
     try:
-        print(f"Attempting to download file: {file_url}")
-        
         # Download the file
         auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
-        response = requests.get(file_url, auth=auth)
+        response = requests.get(file_url, auth=auth, timeout=30)
         
-        print(f"Download response status: {response.status_code}")
-        
-        if response.status_code != 200:
-            print(f"Failed to download file. Status: {response.status_code}, Response: {response.text[:200]}")
-            return f"Error: Could not download file from {file_url} (Status: {response.status_code})"
+        if response.status_code == 404:
+            return f"Error: File not found at URL: {file_url}"
+        elif response.status_code == 403:
+            return f"Error: Access denied to file at URL: {file_url}"
+        elif response.status_code != 200:
+            return f"Error: HTTP {response.status_code} when downloading file from {file_url}"
         
         file_content = response.content
-        print(f"Downloaded {len(file_content)} bytes")
+        
+        # Check if content is empty
+        if not file_content:
+            return f"Error: Empty file content from {file_url}"
         
         # Extract text based on file type
         if file_extension.lower() == '.pdf':
-            text = extract_text_from_pdf(file_content)
-            print(f"Extracted {len(text)} characters from PDF")
-            return text
+            return extract_text_from_pdf(file_content)
         elif file_extension.lower() in ['.docx', '.doc']:
-            text = extract_text_from_docx(file_content)
-            print(f"Extracted {len(text)} characters from DOCX")
-            return text
+            return extract_text_from_docx(file_content)
         elif file_extension.lower() == '.txt':
-            text = extract_text_from_txt(file_content)
-            print(f"Extracted {len(text)} characters from TXT")
-            return text
+            return extract_text_from_txt(file_content)
         else:
             return f"Unsupported file type: {file_extension}"
             
+    except requests.exceptions.Timeout:
+        return f"Error: Timeout when downloading file from {file_url}"
+    except requests.exceptions.ConnectionError:
+        return f"Error: Connection error when downloading file from {file_url}"
     except Exception as e:
-        print(f"Exception in extract_text_from_file: {str(e)}")
         return f"Error extracting text from file: {str(e)}"
 
 def extract_text_from_pdf(pdf_content: bytes) -> str:
@@ -378,17 +377,10 @@ def extract_text_from_pdf(pdf_content: bytes) -> str:
         pdf_file = io.BytesIO(pdf_content)
         pdf_reader = PyPDF2.PdfReader(pdf_file)
         text = ""
-        for i, page in enumerate(pdf_reader.pages):
-            try:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-            except Exception as page_error:
-                print(f"Error extracting text from page {i+1}: {str(page_error)}")
-                continue
-        return text.strip() if text.strip() else "No text could be extracted from PDF"
+        for page in pdf_reader.pages:
+            text += page.extract_text() + "\n"
+        return text.strip()
     except Exception as e:
-        print(f"Error reading PDF: {str(e)}")
         return f"Error reading PDF: {str(e)}"
 
 def extract_text_from_docx(docx_content: bytes) -> str:
@@ -397,22 +389,10 @@ def extract_text_from_docx(docx_content: bytes) -> str:
         docx_file = io.BytesIO(docx_content)
         doc = Document(docx_file)
         text = ""
-        
-        # Extract text from paragraphs
         for paragraph in doc.paragraphs:
-            if paragraph.text.strip():
-                text += paragraph.text + "\n"
-        
-        # Extract text from tables
-        for table in doc.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    if cell.text.strip():
-                        text += cell.text + "\n"
-        
-        return text.strip() if text.strip() else "No text could be extracted from DOCX"
+            text += paragraph.text + "\n"
+        return text.strip()
     except Exception as e:
-        print(f"Error reading DOCX: {str(e)}")
         return f"Error reading DOCX: {str(e)}"
 
 def extract_text_from_txt(txt_content: bytes) -> str:
@@ -434,24 +414,32 @@ def get_page_attachments(confluence, page_id: str) -> List[Dict[str, str]]:
             file_extension = os.path.splitext(filename)[1].lower()
             
             if file_extension in supported_extensions:
-                # Get the download URL - try different possible locations
+                # Try different ways to get the download URL
                 download_url = None
-                if '_links' in attachment and 'download' in attachment['_links']:
-                    download_url = attachment['_links']['download']
-                elif 'download' in attachment:
-                    download_url = attachment['download']
-                else:
-                    # Construct the download URL manually
-                    base_url = confluence.url.rstrip('/')
-                    download_url = f"{base_url}/download/attachments/{page_id}/{filename}"
                 
-                file_attachments.append({
-                    'filename': filename,
-                    'url': download_url,
-                    'extension': file_extension
-                })
+                # Method 1: Try _links.download
+                if attachment.get('_links', {}).get('download'):
+                    download_url = attachment['_links']['download']
+                
+                # Method 2: Try _links.self + /download
+                elif attachment.get('_links', {}).get('self'):
+                    base_url = attachment['_links']['self']
+                    download_url = f"{base_url}/download"
+                
+                # Method 3: Construct URL using attachment ID
+                elif attachment.get('id'):
+                    # Get the base URL from confluence instance
+                    base_url = confluence.url.rstrip('/')
+                    download_url = f"{base_url}/download/attachments/{page_id}/{attachment['id']}"
+                
+                if download_url:
+                    file_attachments.append({
+                        'filename': filename,
+                        'url': download_url,
+                        'extension': file_extension,
+                        'id': attachment.get('id', '')
+                    })
         
-        print(f"Found {len(file_attachments)} supported attachments for page {page_id}")
         return file_attachments
     except Exception as e:
         print(f"Error getting attachments: {e}")
@@ -835,26 +823,19 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             full_context += f"\n\nTitle: {page['title']}\n{text_content}"
             
             # Get and process attachments
-            print(f"Processing attachments for page: {page['title']} (ID: {page_id})")
             attachments = get_page_attachments(confluence, page_id)
             if attachments:
-                print(f"Found {len(attachments)} attachments to process")
                 full_context += f"\n\nAttachments in {page['title']}:"
                 for attachment in attachments:
-                    print(f"Processing attachment: {attachment['filename']}")
                     try:
+                        print(f"Processing attachment: {attachment['filename']} with URL: {attachment['url']}")
                         file_text = extract_text_from_file(attachment['url'], attachment['extension'])
                         if not file_text.startswith("Error"):
-                            print(f"Successfully extracted text from {attachment['filename']}")
                             full_context += f"\n\nFile: {attachment['filename']}\n{file_text}"
                         else:
-                            print(f"Failed to extract text from {attachment['filename']}: {file_text}")
-                            full_context += f"\n\nFile: {attachment['filename']} (Could not extract text: {file_text})"
+                            full_context += f"\n\nFile: {attachment['filename']} ({file_text})"
                     except Exception as e:
-                        print(f"Exception processing {attachment['filename']}: {str(e)}")
                         full_context += f"\n\nFile: {attachment['filename']} (Error: {str(e)})"
-            else:
-                print(f"No attachments found for page: {page['title']}")
         
         # Generate AI response
         prompt = (
@@ -3129,57 +3110,6 @@ async def send_to_google_chat_endpoint(payload: dict = Body(...)):
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
-
-@app.get("/test-attachments/{space_key}/{page_title}")
-async def test_attachments(space_key: str, page_title: str):
-    """Test endpoint to debug attachment functionality"""
-    try:
-        confluence = init_confluence()
-        space_key = auto_detect_space(confluence, space_key)
-        
-        # Get the page
-        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=100)
-        selected_page = next((p for p in pages if p["title"] == page_title), None)
-        
-        if not selected_page:
-            return {"error": "Page not found"}
-        
-        page_id = selected_page["id"]
-        
-        # Get attachments
-        attachments = get_page_attachments(confluence, page_id)
-        
-        # Test extracting text from first attachment
-        test_results = []
-        for attachment in attachments[:2]:  # Test first 2 attachments
-            try:
-                file_text = extract_text_from_file(attachment['url'], attachment['extension'])
-                test_results.append({
-                    'filename': attachment['filename'],
-                    'url': attachment['url'],
-                    'extension': attachment['extension'],
-                    'extraction_success': not file_text.startswith("Error"),
-                    'text_length': len(file_text) if not file_text.startswith("Error") else 0,
-                    'text_preview': file_text[:200] if not file_text.startswith("Error") else file_text
-                })
-            except Exception as e:
-                test_results.append({
-                    'filename': attachment['filename'],
-                    'url': attachment['url'],
-                    'extension': attachment['extension'],
-                    'extraction_success': False,
-                    'error': str(e)
-                })
-        
-        return {
-            "page_title": page_title,
-            "page_id": page_id,
-            "total_attachments": len(attachments),
-            "test_results": test_results
-        }
-        
-    except Exception as e:
-        return {"error": str(e)}
 
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):
