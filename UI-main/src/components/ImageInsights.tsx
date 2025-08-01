@@ -72,6 +72,8 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [isExportingChart, setIsExportingChart] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [saveMode, setSaveMode] = useState('append');
+  const [newPageTitle, setNewPageTitle] = useState('');
+  const [showNewPageInput, setShowNewPageInput] = useState(false);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [previewDiff, setPreviewDiff] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -196,6 +198,16 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
     };
     loadPages();
   }, [spaceKey]);
+
+  // Handle save mode change
+  useEffect(() => {
+    if (saveMode === 'new') {
+      setShowNewPageInput(true);
+    } else {
+      setShowNewPageInput(false);
+      setNewPageTitle('');
+    }
+  }, [saveMode]);
 
   const chartTypes = [
     { value: 'bar' as const, label: 'Grouped Bar Chart' },
@@ -1375,8 +1387,23 @@ ${JSON.stringify(chartData.data, null, 2)}
                               >
                                 <option value="append">Append</option>
                                 <option value="overwrite">Overwrite</option>
+                                <option value="new">New Page</option>
                               </select>
                             </div>
+
+                            {showNewPageInput && (
+                              <div className="flex items-center space-x-2 mb-2">
+                                <label htmlFor="new-page-title" className="text-sm font-medium text-gray-700">New Page Title:</label>
+                                <input
+                                  id="new-page-title"
+                                  type="text"
+                                  value={newPageTitle}
+                                  onChange={e => setNewPageTitle(e.target.value)}
+                                  placeholder="Enter new page title..."
+                                  className="px-3 py-1 border border-white/30 rounded text-sm focus:ring-2 focus:ring-confluence-blue bg-white/70 backdrop-blur-sm flex-1"
+                                />
+                              </div>
+                            )}
                             
                             <div className="space-y-2">
                               <button
@@ -1427,19 +1454,29 @@ ${JSON.stringify(chartData.data, null, 2)}
                               </button>
                               <button
                                 onClick={async () => {
-                                  const { space, page } = getConfluenceSpaceAndPageFromUrl();
-                                  if (!space || !page) {
-                                    alert('Confluence space or page not specified in macro src URL.');
-                                    return;
-                                  }
-                                  if (!chartData) {
-                                    alert('No chart available to save.');
-                                    return;
-                                  }
-                                  
-                                  try {
-                                    // Create chart content for Confluence
-                                    const chartContent = `
+                                  if (saveMode === 'new') {
+                                    if (!newPageTitle.trim()) {
+                                      alert('Please enter a page title for the new page.');
+                                      return;
+                                    }
+                                    const { space } = getConfluenceSpaceAndPageFromUrl();
+                                    if (!space && !autoSpaceKey) {
+                                      alert('Confluence space not specified in macro src URL.');
+                                      return;
+                                    }
+                                    const finalSpace = space || autoSpaceKey;
+                                    if (!finalSpace) {
+                                      alert('Confluence space not available.');
+                                      return;
+                                    }
+                                    if (!chartData) {
+                                      alert('No chart available to save.');
+                                      return;
+                                    }
+                                    
+                                    try {
+                                      // Create chart content for Confluence
+                                      const chartContent = `
 <div class="chart-container">
   <h3>${chartData.title}</h3>
   <p><strong>Chart Type:</strong> ${chartData.type.charAt(0).toUpperCase() + chartData.type.slice(1)} Chart</p>
@@ -1449,17 +1486,55 @@ ${JSON.stringify(chartData.data, null, 2)}
   </div>
   <p><em>Chart generated from ${chartData.data.imageId ? 'image data' : chartData.data.tableId ? 'table data' : chartData.data.excelId ? 'excel data' : 'data source'}</em></p>
 </div>`;
+                                      
+                                      await apiService.saveToConfluence({
+                                        space_key: finalSpace,
+                                        page_title: newPageTitle.trim(),
+                                        content: chartContent,
+                                        mode: 'new',
+                                      });
+                                      setShowToast(true);
+                                      setTimeout(() => setShowToast(false), 3000);
+                                      setNewPageTitle('');
+                                      setSaveMode('append');
+                                    } catch (err: any) {
+                                      alert('Failed to save chart to Confluence: ' + (err.message || err));
+                                    }
+                                  } else {
+                                    const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                                    if (!space || !page) {
+                                      alert('Confluence space or page not specified in macro src URL.');
+                                      return;
+                                    }
+                                    if (!chartData) {
+                                      alert('No chart available to save.');
+                                      return;
+                                    }
                                     
-                                    await apiService.saveToConfluence({
-                                      space_key: space,
-                                      page_title: page,
-                                      content: chartContent,
-                                      mode: saveMode,
-                                    });
-                                    setShowToast(true);
-                                    setTimeout(() => setShowToast(false), 3000);
-                                  } catch (err: any) {
-                                    alert('Failed to save chart to Confluence: ' + (err.message || err));
+                                    try {
+                                      // Create chart content for Confluence
+                                      const chartContent = `
+<div class="chart-container">
+  <h3>${chartData.title}</h3>
+  <p><strong>Chart Type:</strong> ${chartData.type.charAt(0).toUpperCase() + chartData.type.slice(1)} Chart</p>
+  <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+  <div class="chart-preview">
+    <img src="data:${chartData.data.mimeType};base64,${chartData.data.chartDataBase64}" alt="${chartData.title}" style="max-width: 100%; height: auto;" />
+  </div>
+  <p><em>Chart generated from ${chartData.data.imageId ? 'image data' : chartData.data.tableId ? 'table data' : chartData.data.excelId ? 'excel data' : 'data source'}</em></p>
+</div>`;
+                                      
+                                      await apiService.saveToConfluence({
+                                        space_key: space,
+                                        page_title: page,
+                                        content: chartContent,
+                                        mode: saveMode,
+                                      });
+                                      setShowToast(true);
+                                      setTimeout(() => setShowToast(false), 3000);
+                                    } catch (err: any) {
+                                      alert('Failed to save chart to Confluence: ' + (err.message || err));
+                                    }
                                   }
                                 }}
                                 className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
