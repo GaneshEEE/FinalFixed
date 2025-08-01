@@ -408,10 +408,15 @@ def get_page_attachments(confluence, page_id: str) -> List[Dict[str, str]]:
         attachments = confluence.get_attachments_from_content(page_id, start=0, limit=100)
         supported_extensions = ['.pdf', '.docx', '.doc', '.txt']
         
+        print(f"Raw attachments response: {attachments}")
+        
         file_attachments = []
         for attachment in attachments.get('results', []):
             filename = attachment.get('title', '')
             file_extension = os.path.splitext(filename)[1].lower()
+            
+            print(f"Processing attachment: {filename} with extension: {file_extension}")
+            print(f"Attachment data: {attachment}")
             
             if file_extension in supported_extensions:
                 # Try different ways to get the download URL
@@ -420,17 +425,29 @@ def get_page_attachments(confluence, page_id: str) -> List[Dict[str, str]]:
                 # Method 1: Try _links.download
                 if attachment.get('_links', {}).get('download'):
                     download_url = attachment['_links']['download']
+                    print(f"Method 1 - Direct download URL: {download_url}")
                 
                 # Method 2: Try _links.self + /download
                 elif attachment.get('_links', {}).get('self'):
                     base_url = attachment['_links']['self']
                     download_url = f"{base_url}/download"
+                    print(f"Method 2 - Self + download URL: {download_url}")
                 
                 # Method 3: Construct URL using attachment ID
                 elif attachment.get('id'):
                     # Get the base URL from confluence instance
                     base_url = confluence.url.rstrip('/')
                     download_url = f"{base_url}/download/attachments/{page_id}/{attachment['id']}"
+                    print(f"Method 3 - Constructed URL: {download_url}")
+                
+                # Method 4: Try using the confluence download method directly
+                if not download_url and attachment.get('id'):
+                    try:
+                        # Use confluence's built-in download method
+                        download_url = confluence.download_attachment(attachment['id'], 'temp')
+                        print(f"Method 4 - Confluence download method: {download_url}")
+                    except Exception as e:
+                        print(f"Method 4 failed: {e}")
                 
                 if download_url:
                     file_attachments.append({
@@ -439,10 +456,55 @@ def get_page_attachments(confluence, page_id: str) -> List[Dict[str, str]]:
                         'extension': file_extension,
                         'id': attachment.get('id', '')
                     })
+                    print(f"Successfully added attachment: {filename} with URL: {download_url}")
+                else:
+                    print(f"Failed to get download URL for: {filename}")
         
         return file_attachments
     except Exception as e:
         print(f"Error getting attachments: {e}")
+        return []
+
+def get_page_attachments_alternative(confluence, page_id: str) -> List[Dict[str, str]]:
+    """Alternative method to get attachments using different API approach"""
+    try:
+        supported_extensions = ['.pdf', '.docx', '.doc', '.txt']
+        file_attachments = []
+        
+        # Try to get attachments using a different method
+        try:
+            # Get page content with attachments expanded
+            page_data = confluence.get_page_by_id(page_id, expand="children.attachment")
+            print(f"Page data with attachments: {page_data}")
+            
+            if 'children' in page_data and 'attachment' in page_data['children']:
+                attachments = page_data['children']['attachment']['results']
+                
+                for attachment in attachments:
+                    filename = attachment.get('title', '')
+                    file_extension = os.path.splitext(filename)[1].lower()
+                    
+                    if file_extension in supported_extensions:
+                        # Try to construct the download URL
+                        base_url = confluence.url.rstrip('/')
+                        attachment_id = attachment.get('id')
+                        
+                        if attachment_id:
+                            download_url = f"{base_url}/download/attachments/{page_id}/{attachment_id}"
+                            file_attachments.append({
+                                'filename': filename,
+                                'url': download_url,
+                                'extension': file_extension,
+                                'id': attachment_id
+                            })
+                            print(f"Alternative method - Added: {filename} with URL: {download_url}")
+        
+        except Exception as e:
+            print(f"Alternative method failed: {e}")
+        
+        return file_attachments
+    except Exception as e:
+        print(f"Error in alternative attachment method: {e}")
         return []
 
 
@@ -824,6 +886,12 @@ async def ai_powered_search(request: SearchRequest, req: Request):
             
             # Get and process attachments
             attachments = get_page_attachments(confluence, page_id)
+            
+            # If no attachments found, try alternative method
+            if not attachments:
+                print(f"No attachments found with primary method for page {page['title']}, trying alternative...")
+                attachments = get_page_attachments_alternative(confluence, page_id)
+            
             if attachments:
                 full_context += f"\n\nAttachments in {page['title']}:"
                 for attachment in attachments:
@@ -3110,6 +3178,40 @@ async def send_to_google_chat_endpoint(payload: dict = Body(...)):
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
+
+@app.get("/debug-attachments/{space_key}/{page_title}")
+async def debug_attachments(space_key: str, page_title: str):
+    """Debug endpoint to test attachment retrieval"""
+    try:
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, space_key)
+        
+        # Get page
+        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=100)
+        selected_page = next((p for p in pages if p["title"] == page_title), None)
+        
+        if not selected_page:
+            return {"error": f"Page '{page_title}' not found in space '{space_key}'"}
+        
+        page_id = selected_page["id"]
+        
+        # Try both methods
+        attachments1 = get_page_attachments(confluence, page_id)
+        attachments2 = get_page_attachments_alternative(confluence, page_id)
+        
+        # Get raw page data
+        page_data = confluence.get_page_by_id(page_id, expand="children.attachment")
+        
+        return {
+            "page_id": page_id,
+            "page_title": page_title,
+            "method1_attachments": attachments1,
+            "method2_attachments": attachments2,
+            "raw_page_data": page_data
+        }
+        
+    except Exception as e:
+        return {"error": str(e)}
 
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):
