@@ -15,42 +15,42 @@ export const featureConfigs: Record<NonNullable<FeatureType>, FeatureConfig> = {
     label: 'AI Powered Search',
     icon: Search,
     title: 'AI Powered Search',
-    description: 'AI-powered search and analysis for your Confluence workspace'
+    description: 'Smart search across Confluence pages and files'
   },
   video: {
     id: 'video',
     label: 'Video Summarizer',
     icon: Video,
     title: 'Video Summarizer',
-    description: 'AI-powered video summarization and analysis for your Confluence workspace'
+    description: 'Extract insights from video content'
   },
   code: {
     id: 'code',
     label: 'Code Assistant',
     icon: Code,
     title: 'Code Assistant',
-    description: 'AI-powered code modification and conversion for your Confluence workspace'
+    description: 'Modify and convert code with AI'
   },
   impact: {
     id: 'impact',
     label: 'Impact Analyzer',
     icon: TrendingUp,
     title: 'Impact Analyzer',
-    description: 'AI-powered code impact analysis and risk assessment for your Confluence workspace'
+    description: 'Analyze code and documentation changes and risks'
   },
   test: {
     id: 'test',
     label: 'Test Support Tool',
     icon: TestTube,
     title: 'Test Support Tool',
-    description: 'AI-powered test strategy generation and analysis for your Confluence workspace'
+    description: 'Generate test strategies and workflows'
   },
   image: {
     id: 'image',
     label: 'Chart Builder',
     icon: BarChart3,
     title: 'Chart Builder',
-    description: 'AI-powered chart and visualization builder for your Confluence workspace'
+    description: 'Create charts from images, tables, and data'
   }
 };
 

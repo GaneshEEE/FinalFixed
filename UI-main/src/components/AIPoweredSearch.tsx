@@ -268,7 +268,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
             <div className="flex items-center space-x-2">
               <button 
                 onClick={() => onModeSelect('agent')}
-                className="text-blue-100 hover:text-white bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
+                className="text-blue-100 hover:text-white hover:bg-white/10 rounded-lg px-3 py-1 text-sm transition-colors"
               >
                 Switch to Agent Mode
               </button>
