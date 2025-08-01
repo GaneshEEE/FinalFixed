@@ -43,7 +43,7 @@ export const featureConfigs: Record<NonNullable<FeatureType>, FeatureConfig> = {
     label: 'Test Support Tool',
     icon: TestTube,
     title: 'Test Support Tool',
-    description: 'AI-powered generation and analysis of test strategies and workflows.'
+    description: 'AI-powered test strategy and workflow generation with analysis'
   },
   image: {
     id: 'image',
