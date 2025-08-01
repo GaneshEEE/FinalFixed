@@ -2971,9 +2971,11 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
         
         # Handle different save modes
         mode = request.mode or "append"
+        print(f"Save mode: {mode}, Page title: {request.page_title}, Space: {space_key}")
         
         if mode == "new":
             # Create a new page
+            print(f"Creating new page: {request.page_title} in space: {space_key}")
             confluence.create_page(
                 space=space_key,
                 title=request.page_title,

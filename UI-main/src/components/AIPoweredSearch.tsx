@@ -665,13 +665,24 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                               return;
                             }
                             const { space } = getConfluenceSpaceAndPageFromUrl();
-                            if (!space) {
+                            console.log('URL params:', { space, autoSpaceKey, isSpaceAutoConnected });
+                            if (!space && !autoSpaceKey) {
                               alert('Confluence space not specified in macro src URL.');
                               return;
                             }
+                            const finalSpace = space || autoSpaceKey;
+                            if (!finalSpace) {
+                              alert('Confluence space not available.');
+                              return;
+                            }
                             try {
+                              console.log('Saving new page:', {
+                                space_key: finalSpace,
+                                page_title: newPageTitle.trim(),
+                                mode: 'new'
+                              });
                               await apiService.saveToConfluence({
-                                space_key: space,
+                                space_key: finalSpace,
                                 page_title: newPageTitle.trim(),
                                 content: response || '',
                                 mode: 'new',
