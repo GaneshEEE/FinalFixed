@@ -2968,11 +2968,6 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
         ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
         confluence = init_confluence()
         space_key = auto_detect_space(confluence, request.space_key)
-        # Get page by title, expand body.storage
-        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='body.storage')
-        if not page:
-            raise HTTPException(status_code=404, detail="Page not found")
-        page_id = page["id"]
         
         # Handle different save modes
         mode = request.mode or "append"
