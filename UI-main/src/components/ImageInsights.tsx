@@ -560,41 +560,73 @@ ${image.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
       
       // If we have a chart URL from the backend, we need to recreate the chart with the current export format
       if (chartData.data.chartUrl) {
-        // Use the stored image ID if available, otherwise find an image with summary
-        let imageId = chartData.data.imageId;
-        if (!imageId) {
-          const imageWithSummary = images.find(img => img.summary);
-          imageId = imageWithSummary?.id;
-        }
-        if (imageId) {
-          const image = images.find(img => img.id === imageId);
+        // Handle different data sources (image, table, excel)
+        const chartTypeMap = {
+          'bar': 'Grouped Bar',
+          'line': 'Line',
+          'pie': 'Pie',
+          'stacked': 'Stacked Bar'
+        };
+        
+        let response;
+        
+        // Check if chart was created from an image
+        if (chartData.data.imageId) {
+          const image = images.find(img => img.id === chartData.data.imageId);
           if (image && image.pageTitle) {
-            // Recreate the chart with the current export format
-            const response = await apiService.createChart({
+            response = await apiService.createChart({
               space_key: spaceKey,
               page_title: image.pageTitle,
               image_url: image.url,
-              chart_type: chartData.type === 'bar' ? 'Grouped Bar' : 
-                         chartData.type === 'line' ? 'Line' : 
-                         chartData.type === 'pie' ? 'Pie' : 'Stacked Bar',
+              chart_type: chartTypeMap[chartData.type as keyof typeof chartTypeMap],
               filename: chartFileName || 'chart',
               format: currentExportFormat
             });
-            
-            // Download the chart in the selected format
-            const binaryString = atob(response.chart_data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: response.mime_type });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = response.filename;
-            a.click();
-            return;
           }
+        }
+        // Check if chart was created from a table
+        else if (chartData.data.tableId) {
+          const table = tables.find(tbl => tbl.id === chartData.data.tableId);
+          if (table && table.pageTitle) {
+            response = await apiService.createChart({
+              space_key: spaceKey,
+              page_title: table.pageTitle,
+              table_html: table.html,
+              chart_type: chartTypeMap[chartData.type as keyof typeof chartTypeMap],
+              filename: chartFileName || 'chart',
+              format: currentExportFormat
+            });
+          }
+        }
+        // Check if chart was created from an Excel file
+        else if (chartData.data.excelId) {
+          const excel = excels.find(xls => xls.id === chartData.data.excelId);
+          if (excel && excel.pageTitle) {
+            response = await apiService.createChart({
+              space_key: spaceKey,
+              page_title: excel.pageTitle,
+              excel_url: excel.url,
+              chart_type: chartTypeMap[chartData.type as keyof typeof chartTypeMap],
+              filename: chartFileName || 'chart',
+              format: currentExportFormat
+            });
+          }
+        }
+        
+        // Download the chart if we got a response
+        if (response) {
+          const binaryString = atob(response.chart_data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          const blob = new Blob([bytes], { type: response.mime_type });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = response.filename;
+          a.click();
+          return;
         }
       }
       
