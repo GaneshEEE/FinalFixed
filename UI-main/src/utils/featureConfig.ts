@@ -36,7 +36,7 @@ export const featureConfigs: Record<NonNullable<FeatureType>, FeatureConfig> = {
     label: 'Impact Analyzer',
     icon: TrendingUp,
     title: 'Impact Analyzer',
-    description: 'Analyze code and documentation changes and risks'
+    description: 'Analyze documentation and code changes and risks'
   },
   test: {
     id: 'test',
