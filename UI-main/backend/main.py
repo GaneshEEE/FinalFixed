@@ -425,6 +425,10 @@ def get_page_attachments(confluence, page_id: str) -> List[Dict[str, str]]:
                 # Method 1: Try _links.download
                 if attachment.get('_links', {}).get('download'):
                     download_url = attachment['_links']['download']
+                    # If it's a relative URL, make it absolute
+                    if download_url.startswith('/'):
+                        base_url = confluence.url.rstrip('/')
+                        download_url = f"{base_url}{download_url}"
                     print(f"Method 1 - Direct download URL: {download_url}")
                 
                 # Method 2: Try _links.self + /download
@@ -491,6 +495,9 @@ def get_page_attachments_alternative(confluence, page_id: str) -> List[Dict[str,
                         
                         if attachment_id:
                             download_url = f"{base_url}/download/attachments/{page_id}/{attachment_id}"
+                            # Ensure it's an absolute URL
+                            if not download_url.startswith('http'):
+                                download_url = f"{base_url}{download_url}"
                             file_attachments.append({
                                 'filename': filename,
                                 'url': download_url,
