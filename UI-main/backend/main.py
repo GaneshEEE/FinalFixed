@@ -13,6 +13,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from fpdf import FPDF
 from docx import Document
+from pptx import Presentation
+from pptx.util import Inches
 from dotenv import load_dotenv
 from atlassian import Confluence
 import google.generativeai as genai
@@ -237,6 +239,98 @@ def create_html(text):
 
 def create_txt(text):
     return io.BytesIO(text.encode())
+
+def create_pptx(text):
+    """Create a PowerPoint presentation with the given text content"""
+    prs = Presentation()
+    
+    # Add a slide
+    slide_layout = prs.slide_layouts[6]  # Blank layout
+    slide = prs.slides.add_slide(slide_layout)
+    
+    # Add a text box
+    left = Inches(1)
+    top = Inches(1)
+    width = Inches(8)
+    height = Inches(6)
+    
+    txBox = slide.shapes.add_textbox(left, top, width, height)
+    tf = txBox.text_frame
+    
+    # Add text content
+    lines = text.split('\n')
+    for i, line in enumerate(lines):
+        if i == 0:
+            p = tf.add_paragraph()
+            p.text = line
+            p.font.size = Inches(0.3)  # 24pt
+            p.font.bold = True
+        else:
+            p = tf.add_paragraph()
+            p.text = line
+            p.font.size = Inches(0.2)  # 16pt
+    
+    # Save to buffer
+    buffer = io.BytesIO()
+    prs.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+def create_pptx_with_image(image_data_base64, title="Chart"):
+    """Create a PowerPoint presentation with just the chart image"""
+    prs = Presentation()
+    
+    # Add a slide
+    slide_layout = prs.slide_layouts[6]  # Blank layout
+    slide = prs.slides.add_slide(slide_layout)
+    
+    try:
+        # Decode base64 image data
+        image_data = base64.b64decode(image_data_base64)
+        
+        # Add image to slide
+        left = Inches(1)
+        top = Inches(1.5)
+        width = Inches(8)
+        height = Inches(5)
+        
+        # Save image to temporary buffer
+        img_buffer = io.BytesIO(image_data)
+        slide.shapes.add_picture(img_buffer, left, top, width, height)
+        
+        # Add title if provided
+        if title:
+            title_left = Inches(1)
+            title_top = Inches(0.5)
+            title_width = Inches(8)
+            title_height = Inches(0.8)
+            
+            titleBox = slide.shapes.add_textbox(title_left, title_top, title_width, title_height)
+            titleFrame = titleBox.text_frame
+            titlePara = titleFrame.add_paragraph()
+            titlePara.text = title
+            titlePara.font.size = Inches(0.4)  # 32pt
+            titlePara.font.bold = True
+            titlePara.alignment = 1  # Center alignment
+        
+    except Exception as e:
+        # Fallback: create slide with error message
+        left = Inches(1)
+        top = Inches(1)
+        width = Inches(8)
+        height = Inches(6)
+        
+        txBox = slide.shapes.add_textbox(left, top, width, height)
+        tf = txBox.text_frame
+        p = tf.add_paragraph()
+        p.text = f"Error creating chart: {str(e)}"
+        p.font.size = Inches(0.2)
+    
+    # Save to buffer
+    buffer = io.BytesIO()
+    prs.save(buffer)
+    buffer.seek(0)
+    return buffer
 
 
 def extract_timestamps_from_summary(summary):
@@ -2587,18 +2681,38 @@ async def create_chart(request: ChartRequest, req: Request):
             plt.pie(data, labels=df[label_col], autopct="%1.1f%%", startangle=140)
             plt.title("Pie Chart (Total Responses)")
             plt.tight_layout()
-        # Save chart to bytes
-        buf = io.BytesIO()
-        plt.savefig(buf, format=request.format.lower(), bbox_inches="tight")
-        buf.seek(0)
-        chart_bytes = buf.getvalue()
-        # Convert to base64 for response
-        chart_base64 = base64.b64encode(chart_bytes).decode()
-        return {
-            "chart_data": chart_base64,
-            "mime_type": f"image/{request.format.lower()}",
-            "filename": f"{request.filename}.{request.format.lower()}"
-        }
+        # Handle PowerPoint format specially
+        if request.format.lower() == "pptx":
+            # Save chart as PNG first
+            buf = io.BytesIO()
+            plt.savefig(buf, format="png", bbox_inches="tight", dpi=300)
+            buf.seek(0)
+            chart_bytes = buf.getvalue()
+            chart_base64 = base64.b64encode(chart_bytes).decode()
+            
+            # Create PowerPoint with the chart image
+            pptx_buffer = create_pptx_with_image(chart_base64, f"{request.chart_type} Chart")
+            pptx_bytes = pptx_buffer.getvalue()
+            pptx_base64 = base64.b64encode(pptx_bytes).decode()
+            
+            return {
+                "chart_data": pptx_base64,
+                "mime_type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                "filename": f"{request.filename}.pptx"
+            }
+        else:
+            # Save chart to bytes for other formats
+            buf = io.BytesIO()
+            plt.savefig(buf, format=request.format.lower(), bbox_inches="tight")
+            buf.seek(0)
+            chart_bytes = buf.getvalue()
+            # Convert to base64 for response
+            chart_base64 = base64.b64encode(chart_bytes).decode()
+            return {
+                "chart_data": chart_base64,
+                "mime_type": f"image/{request.format.lower()}",
+                "filename": f"{request.filename}.{request.format.lower()}"
+            }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2617,6 +2731,10 @@ async def export_content(request: ExportRequest, req: Request):
             buffer = create_docx(request.content)
             file_data = buffer.getvalue()
             return {"file": base64.b64encode(file_data).decode('utf-8'), "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "filename": f"{request.filename}.docx"}
+        elif request.format == "pptx":
+            buffer = create_pptx(request.content)
+            file_data = buffer.getvalue()
+            return {"file": base64.b64encode(file_data).decode('utf-8'), "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation", "filename": f"{request.filename}.pptx"}
         elif request.format == "csv":
             buffer = create_csv(request.content)
             file_data = buffer.getvalue()

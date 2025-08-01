@@ -85,7 +85,8 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const exportFormats = [
     { value: 'markdown', label: 'Markdown' },
     { value: 'pdf', label: 'PDF' },
-    { value: 'docx', label: 'Word Document' }
+    { value: 'docx', label: 'Word Document' },
+    { value: 'pptx', label: 'PowerPoint Presentation' }
   ];
 
   // --- History feature for Q&A ---
