@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Zap, X, Send, Download, RotateCcw, FileText, Brain, CheckCircle, Loader2, MessageSquare, Plus, ChevronDown, TrendingUp, TestTube, Video } from 'lucide-react';
 import type { AppMode } from '../App';
 import { apiService, analyzeGoal, getPagesWithType, PageWithType } from '../services/api';
@@ -224,6 +224,60 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [currentHistoryId, setCurrentHistoryId] = useState<string | null>(null);
+
+  // Add refs for auto-scroll functionality
+  const resultSectionRef = useRef<HTMLDivElement>(null);
+  const impactAnalyzerRef = useRef<HTMLDivElement>(null);
+  const testStrategyRef = useRef<HTMLDivElement>(null);
+  const pageResultRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to results when outputTabs are generated
+  useEffect(() => {
+    if (outputTabs.length > 0 && resultSectionRef.current) {
+      setTimeout(() => {
+        resultSectionRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [outputTabs]);
+
+  // Auto-scroll to impact analyzer results when they are generated
+  useEffect(() => {
+    if (outputTabs.find(t => t.id === 'per-page-results')?.results?.some((r: any) => 'impactAnalyzerResult' in r) && impactAnalyzerRef.current) {
+      setTimeout(() => {
+        impactAnalyzerRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [outputTabs]);
+
+  // Auto-scroll to test strategy results when they are generated
+  useEffect(() => {
+    if (outputTabs.find(t => t.id === 'per-page-results')?.results?.some((r: any) => 'testStrategyResult' in r) && testStrategyRef.current) {
+      setTimeout(() => {
+        testStrategyRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [outputTabs]);
+
+  // Auto-scroll to page results when they are generated
+  useEffect(() => {
+    if (outputTabs.find(t => t.id === 'per-page-results')?.results && pageResultRef.current) {
+      setTimeout(() => {
+        pageResultRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [outputTabs]);
 
   // Auto-detect and auto-select space and page if only one exists, or from URL if provided
   useEffect(() => {
@@ -676,15 +730,15 @@ const AgentMode: React.FC<AgentModeProps> = ({ onClose, onModeSelect, autoSpaceK
                     <div className="font-semibold text-green-800 text-lg">+{res.lines_added || 0}</div>
                     <div className="text-green-600 text-xs">Lines Added</div>
                   </div>
-                  <div className="bg-red-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-red-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-red-800 text-lg">-{res.lines_removed || 0}</div>
                     <div className="text-red-600 text-xs">Lines Removed</div>
                   </div>
-                  <div className="bg-blue-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-blue-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-blue-800 text-lg">{res.files_changed || 1}</div>
                     <div className="text-blue-600 text-xs">Files Changed</div>
                   </div>
-                  <div className="bg-purple-100/80 backdrop-blur-sm p-3 rounded-lg text-center border border-white/20">
+                  <div className="bg-purple-100/80 backdrop-sm p-3 rounded-lg text-center border border-white/20">
                     <div className="font-semibold text-purple-800 text-lg">{res.percentage_change || 0}%</div>
                     <div className="text-purple-600 text-xs">Percentage Changed</div>
                   </div>
@@ -1468,7 +1522,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
               {/* Right Columns - Output Tabs */}
               <div className="lg:col-span-2">
                 {outputTabs.length > 0 && (
-                  <div className="bg-white/60 backdrop-blur-xl rounded-xl border border-white/20 shadow-lg overflow-hidden">
+                  <div ref={resultSectionRef} className="bg-white/60 backdrop-blur-xl rounded-xl border border-white/20 shadow-lg overflow-hidden">
                     {/* Tab Headers */}
                     <div className="border-b border-white/20 bg-white/40 backdrop-blur-sm">
                       <div className="flex overflow-x-auto">
@@ -1552,7 +1606,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                               ) : null}
                               {/* Impact Analyzer Result */}
                               {activeResult && activeResult.type === 'impact-analyzer' && (
-                                <div className="mt-4">
+                                <div ref={impactAnalyzerRef} className="mt-4">
                                   {(() => {
                                     const impactData = (outputTabs.find(t => t.id === 'per-page-results')?.results || []).find((r: any) => 'impactAnalyzerResult' in r);
                                     if (!impactData || !('impactAnalyzerResult' in impactData)) return null;
@@ -1562,7 +1616,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                               )}
                               {/* Test Strategy Result */}
                               {activeResult && activeResult.type === 'test-strategy' && (
-                                <div className="mt-4">
+                                <div ref={testStrategyRef} className="mt-4">
                                   {(() => {
                                     const testStrategyData = (outputTabs.find(t => t.id === 'per-page-results')?.results || []).find((r: any) => 'testStrategyResult' in r);
                                     if (!testStrategyData || !('testStrategyResult' in testStrategyData)) return null;
@@ -1572,7 +1626,7 @@ ${isHistoryExport ? `*Historical Entry ID: ${currentHistoryId}*` : ''}`;
                               )}
                               {/* Page Results */}
                               {activeResult && activeResult.type === 'page' && (
-                                <div className="mt-4">
+                                <div ref={pageResultRef} className="mt-4">
                                   {(() => {
                                     const pageData = (outputTabs.find(t => t.id === 'per-page-results')?.results || []).find((r: { page: string, results: Array<{ instruction: string, tool: string, outputs: string[], formattedOutput: string }> }) => r.page === activeResult.page);
                                     if (!pageData) return null;

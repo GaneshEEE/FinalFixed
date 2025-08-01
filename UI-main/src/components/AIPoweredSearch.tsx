@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Search, BarChart3, Download, Save, FileText, X, ChevronDown, Loader2, Settings, Video, Code, TrendingUp, TestTube, Image, CheckCircle, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
@@ -51,6 +51,21 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
     { value: 'pdf', label: 'PDF' },
     { value: 'docx', label: 'Word Document' }
   ];
+
+  // Add ref for auto-scroll functionality
+  const aiResponseRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to AI Response when it's generated
+  useEffect(() => {
+    if (response && aiResponseRef.current) {
+      setTimeout(() => {
+        aiResponseRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [response]);
 
   const toggleSelectAllPages = () => {
     if (selectedPages.length === pages.length) {
@@ -467,7 +482,7 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
               )}
               {/* --- End History Dropdown --- */}
               {response && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg" ref={aiResponseRef}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-semibold text-gray-800">AI Response</h3>
                     {responseSource && (

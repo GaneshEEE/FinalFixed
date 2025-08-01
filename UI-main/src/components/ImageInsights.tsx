@@ -92,6 +92,60 @@ const ImageInsights: React.FC<ImageInsightsProps> = ({ onClose, onFeatureSelect,
   const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string, imageId: string}>>([]);
   const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
 
+  // Add refs for auto-scroll functionality
+  const chartResultRef = useRef<HTMLDivElement>(null);
+  const imageSummaryRef = useRef<HTMLDivElement>(null);
+  const tableSummaryRef = useRef<HTMLDivElement>(null);
+  const excelSummaryRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to chart result when chart is created
+  useEffect(() => {
+    if (chartData && chartResultRef.current) {
+      setTimeout(() => {
+        chartResultRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [chartData]);
+
+  // Auto-scroll to image summary when it's generated
+  useEffect(() => {
+    if (images.some(img => img.summary) && imageSummaryRef.current) {
+      setTimeout(() => {
+        imageSummaryRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [images]);
+
+  // Auto-scroll to table summary when it's generated
+  useEffect(() => {
+    if (tables.some(tbl => tbl.summary) && tableSummaryRef.current) {
+      setTimeout(() => {
+        tableSummaryRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [tables]);
+
+  // Auto-scroll to excel summary when it's generated
+  useEffect(() => {
+    if (excels.some(xls => xls.summary) && excelSummaryRef.current) {
+      setTimeout(() => {
+        excelSummaryRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [excels]);
+
   // Load spaces on component mount
   useEffect(() => {
     const loadSpaces = async () => {
@@ -1091,7 +1145,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                         )}
                       </div>
                       {image.summary && (
-                        <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                        <div ref={imageSummaryRef} className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
                           <p className="text-sm text-gray-700">{image.summary}</p>
                         </div>
                       )}
@@ -1128,7 +1182,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                       </div>
                       {/* Table summary and Q&A */}
                       {table.summary && (
-                        <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                        <div ref={tableSummaryRef} className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
                           <p className="text-sm text-gray-700">{table.summary}</p>
                         </div>
                       )}
@@ -1174,7 +1228,7 @@ ${JSON.stringify(chartData.data, null, 2)}
                       </div>
                       {/* Excel summary and Q&A */}
                       {excel.summary && (
-                        <div className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
+                        <div ref={excelSummaryRef} className="mt-4 p-3 bg-white/70 backdrop-blur-sm rounded-lg border border-white/20">
                           <p className="text-sm text-gray-700">{excel.summary}</p>
                         </div>
                       )}
@@ -1190,7 +1244,7 @@ ${JSON.stringify(chartData.data, null, 2)}
               )}
               {/* Chart Preview Section */}
               {chartData && (
-                <div ref={chartPreviewRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div ref={chartResultRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <BarChart3 className="w-5 h-5 mr-2" />
                     Chart Builder

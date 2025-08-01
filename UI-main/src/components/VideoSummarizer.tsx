@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Video, BarChart3, Download, Save, X, ChevronDown, ChevronRight, Loader2, Search, Code, TrendingUp, TestTube, MessageSquare, Check, ChevronUp, Image } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
@@ -58,6 +58,21 @@ const VideoSummarizer: React.FC<VideoSummarizerProps> = ({ onClose, onFeatureSel
     { value: 'pdf', label: 'PDF' },
     { value: 'docx', label: 'Word Document' }
   ];
+
+  // Add refs for auto-scroll functionality
+  const videoSummaryRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to video summary when it's generated
+  useEffect(() => {
+    if (videos.some(video => video.summary) && videoSummaryRef.current) {
+      setTimeout(() => {
+        videoSummaryRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [videos]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -623,7 +638,7 @@ ${video.qa?.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                   <div className="border-t border-white/20 bg-white/40 backdrop-blur-xl">
                     <div className="p-6 space-y-6">
                       {/* Summary */}
-                      <div>
+                      <div ref={videoSummaryRef}>
                         <h5 className="font-semibold text-gray-800 mb-3">AI Summary</h5>
                         <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
                           <p className="text-gray-700">{video.summary}</p>

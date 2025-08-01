@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TestTube, BarChart3, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
@@ -55,6 +55,47 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   // --- History feature for Q&A ---
   const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string}>>([]);
   const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
+
+  // Add refs for auto-scroll functionality
+  const testStrategyRef = useRef<HTMLDivElement>(null);
+  const crossPlatformRef = useRef<HTMLDivElement>(null);
+  const sensitivityRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to test strategy when it's generated
+  useEffect(() => {
+    if (testReport?.strategy && testStrategyRef.current) {
+      setTimeout(() => {
+        testStrategyRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [testReport?.strategy]);
+
+  // Auto-scroll to cross-platform results when they are generated
+  useEffect(() => {
+    if (testReport?.crossPlatform && crossPlatformRef.current) {
+      setTimeout(() => {
+        crossPlatformRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [testReport?.crossPlatform]);
+
+  // Auto-scroll to sensitivity results when they are generated
+  useEffect(() => {
+    if (testReport?.sensitivity && sensitivityRef.current) {
+      setTimeout(() => {
+        sensitivityRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [testReport?.sensitivity]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -724,7 +765,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             <div className="xl:col-span-2 space-y-6">
               {/* Test Strategy */}
               {testReport?.strategy && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div ref={testStrategyRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <Play className="w-5 h-5 mr-2 text-confluence-blue" />
                     Test Strategy
@@ -755,7 +796,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Cross-Platform Analysis */}
               {testReport?.crossPlatform && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div ref={crossPlatformRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <Code className="w-5 h-5 mr-2 text-confluence-blue" />
                     Cross-Platform Analysis
@@ -786,7 +827,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Sensitivity Analysis */}
               {testReport?.sensitivity && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div ref={sensitivityRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <TestTube className="w-5 h-5 mr-2 text-confluence-blue" />
                     Sensitivity Analysis

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Code, BarChart3, FileText, Download, Save, X, ChevronDown, Loader2, Zap, Search, Video, TrendingUp, TestTube, Image, ChevronUp, Check } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
@@ -59,6 +59,34 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
   // --- History feature for modification instructions ---
   const [instructionHistory, setInstructionHistory] = useState<Array<{instruction: string, output: string}>>([]);
   const [currentInstructionHistoryIndex, setCurrentInstructionHistoryIndex] = useState<number | null>(null);
+
+  // Add refs for auto-scroll functionality
+  const aiResultRef = useRef<HTMLDivElement>(null);
+  const impactAnalysisRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to AI Result when output is generated
+  useEffect(() => {
+    if ((aiActionOutput || conversionOutput || modificationOutput || processedCode) && aiResultRef.current) {
+      setTimeout(() => {
+        aiResultRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [aiActionOutput, conversionOutput, modificationOutput, processedCode]);
+
+  // Auto-scroll to Impact Analysis when it's generated
+  useEffect(() => {
+    if (impactAnalysis && impactAnalysisRef.current) {
+      setTimeout(() => {
+        impactAnalysisRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [impactAnalysis]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -912,7 +940,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
             {/* Right Column - Processed Code */}
             <div className="space-y-6">
               {/* AI Result section: show all outputs */}
-              <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+              <div ref={aiResultRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-800">AI Result</h3>
                 </div>
@@ -965,7 +993,7 @@ const CodeAssistant: React.FC<CodeAssistantProps> = ({ onClose, onFeatureSelect,
 
               {/* Impact Analysis Results */}
               {impactAnalysis && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div ref={impactAnalysisRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <TrendingUp className="w-5 h-5 mr-2 text-green-600" />
                     Impact Analysis

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TrendingUp, BarChart3, GitCompare, AlertTriangle, CheckCircle, X, ChevronDown, Loader2, Download, Save, MessageSquare, Search, Video, Code, TestTube, Image, ChevronUp, Check, ExternalLink, Shield } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space, StackOverflowRisk } from '../services/api';
@@ -65,6 +65,47 @@ const ImpactAnalyzer: React.FC<ImpactAnalyzerProps> = ({ onClose, onFeatureSelec
   const [isOldPageDropdownOpen, setIsOldPageDropdownOpen] = useState(false);
   const [newPageSearch, setNewPageSearch] = useState('');
   const [isNewPageDropdownOpen, setIsNewPageDropdownOpen] = useState(false);
+
+  // Add refs for auto-scroll functionality
+  const diffResultsRef = useRef<HTMLDivElement>(null);
+  const impactSummaryRef = useRef<HTMLDivElement>(null);
+  const stackOverflowResultsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to diff results when they are generated
+  useEffect(() => {
+    if (diffResults && diffResultsRef.current) {
+      setTimeout(() => {
+        diffResultsRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [diffResults]);
+
+  // Auto-scroll to impact summary when it's generated
+  useEffect(() => {
+    if (impactSummary && impactSummaryRef.current) {
+      setTimeout(() => {
+        impactSummaryRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [impactSummary]);
+
+  // Auto-scroll to stack overflow results when they are generated
+  useEffect(() => {
+    if (stackOverflowRisks.length > 0 && stackOverflowResultsRef.current) {
+      setTimeout(() => {
+        stackOverflowResultsRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [stackOverflowRisks]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -640,7 +681,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             <div className="xl:col-span-2 space-y-6">
               {/* Code Diff */}
               {diffResults && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg" ref={diffResultsRef}>
                   <h3 className="font-semibold text-gray-800 mb-4">Code Diff</h3>
                   <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-80 border border-white/10">
                     <pre className="text-sm">
@@ -666,7 +707,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Impact Summary */}
               {impactSummary && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg" ref={impactSummaryRef}>
                   <h3 className="font-semibold text-gray-800 mb-4">AI Impact Summary</h3>
                   <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20 prose prose-sm max-w-none">
                     {impactSummary.split('\n').map((line, index) => {
@@ -692,7 +733,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Stack Overflow Risk Checker Results */}
               {stackOverflowRisks.length > 0 && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg" ref={stackOverflowResultsRef}>
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <Shield className="w-5 h-5 mr-2 text-blue-600" />
                     Stack Overflow Risk Analysis
