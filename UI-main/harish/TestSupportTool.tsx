@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TestTube, BarChart3, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, ChevronUp, Check, Zap, CheckCircle, XCircle } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
 import { apiService, Space } from '../services/api';
@@ -66,47 +66,6 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   // --- History feature for Q&A ---
   const [qaHistory, setQaHistory] = useState<Array<{question: string, answer: string}>>([]);
   const [currentQaHistoryIndex, setCurrentQaHistoryIndex] = useState<number | null>(null);
-
-  // Add refs for auto-scroll functionality
-  const testStrategyRef = useRef<HTMLDivElement>(null);
-  const crossPlatformRef = useRef<HTMLDivElement>(null);
-  const sensitivityRef = useRef<HTMLDivElement>(null);
-
-  // Auto-scroll to test strategy when it's generated
-  useEffect(() => {
-    if (testReport?.strategy && testStrategyRef.current) {
-      setTimeout(() => {
-        testStrategyRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
-    }
-  }, [testReport?.strategy]);
-
-  // Auto-scroll to cross-platform results when they are generated
-  useEffect(() => {
-    if (testReport?.crossPlatform && crossPlatformRef.current) {
-      setTimeout(() => {
-        crossPlatformRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
-    }
-  }, [testReport?.crossPlatform]);
-
-  // Auto-scroll to sensitivity results when they are generated
-  useEffect(() => {
-    if (testReport?.sensitivity && sensitivityRef.current) {
-      setTimeout(() => {
-        sensitivityRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
-    }
-  }, [testReport?.sensitivity]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -1012,7 +971,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             <div className="xl:col-span-2 space-y-6">
               {/* Test Strategy */}
               {testReport?.strategy && (
-                <div ref={testStrategyRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <Play className="w-5 h-5 mr-2 text-confluence-blue" />
                     Test Strategy
@@ -1043,7 +1002,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Cross-Platform Analysis */}
               {testReport?.crossPlatform && (
-                <div ref={crossPlatformRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <Code className="w-5 h-5 mr-2 text-confluence-blue" />
                     Cross-Platform Analysis
@@ -1074,7 +1033,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Sensitivity Analysis */}
               {testReport?.sensitivity && (
-                <div ref={sensitivityRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <TestTube className="w-5 h-5 mr-2 text-confluence-blue" />
                     Sensitivity Analysis
@@ -1239,53 +1198,35 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                         <div className="grid grid-cols-2 gap-4">
                           <div className="bg-green-100/80 p-3 rounded-lg">
                             <div className="text-sm font-medium text-green-800">Status</div>
-                            <div className="text-sm text-green-700">{githubActionsResult.integration_status}</div>
+                            <div className="text-lg font-semibold text-green-700">{githubActionsResult.integration_status}</div>
                           </div>
                           <div className="bg-blue-100/80 p-3 rounded-lg">
-                            <div className="text-sm font-medium text-blue-800">Estimated Duration</div>
-                            <div className="text-sm text-blue-700">{githubActionsResult.estimated_duration}</div>
+                            <div className="text-sm font-medium text-blue-800">Duration</div>
+                            <div className="text-lg font-semibold text-blue-700">{githubActionsResult.estimated_duration}</div>
                           </div>
                           <div className="bg-purple-100/80 p-3 rounded-lg">
-                            <div className="text-sm font-medium text-purple-800">Coverage Estimate</div>
-                            <div className="text-sm text-purple-700">{githubActionsResult.coverage_estimate}</div>
+                            <div className="text-sm font-medium text-purple-800">Coverage</div>
+                            <div className="text-lg font-semibold text-purple-700">{githubActionsResult.coverage_estimate}</div>
                           </div>
-                          {githubActionsResult.language_info && (
-                            <div className="bg-orange-100/80 p-3 rounded-lg">
-                              <div className="text-sm font-medium text-orange-800">Language Info</div>
-                              <div className="text-sm text-orange-700">
-                                {githubActionsResult.language_info.language} - {githubActionsResult.language_info.framework}
-                              </div>
-                            </div>
-                          )}
+                          <div className="bg-orange-100/80 p-3 rounded-lg">
+                            <div className="text-sm font-medium text-orange-800">Language</div>
+                            <div className="text-lg font-semibold text-orange-700">{githubActionsResult.language_info?.language || 'Unknown'}</div>
+                          </div>
                         </div>
-                        {githubActionsResult.auto_push_result && (
-                          <div className="mt-4 p-3 rounded-lg border">
-                            <h5 className="font-medium text-gray-800 mb-2">Auto-Push Result</h5>
-                            <div className={`text-sm ${githubActionsResult.auto_push_result.success ? 'text-green-700' : 'text-red-700'}`}>
-                              {githubActionsResult.auto_push_result.success ? '✅ Successfully pushed to GitHub' : '❌ Failed to push to GitHub'}
+                        
+                        {githubActionsResult.language_info && (
+                          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                            <h5 className="font-medium text-gray-800 mb-2">Detected Technology Stack</h5>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div><span className="font-medium">Framework:</span> {githubActionsResult.language_info.framework}</div>
+                              <div><span className="font-medium">Test Framework:</span> {githubActionsResult.language_info.test_framework}</div>
+                              <div><span className="font-medium">Package Manager:</span> {githubActionsResult.language_info.package_manager}</div>
+                              <div><span className="font-medium">Build Tool:</span> {githubActionsResult.language_info.build_tool}</div>
                             </div>
-                            {githubActionsResult.auto_push_result.files_pushed && githubActionsResult.auto_push_result.files_pushed.length > 0 && (
-                              <div className="mt-2">
-                                <div className="text-sm font-medium text-gray-700">Files pushed:</div>
-                                <ul className="text-sm text-gray-600 list-disc list-inside">
-                                  {githubActionsResult.auto_push_result.files_pushed.map((file: string, index: number) => (
-                                    <li key={index}>{file}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                            {githubActionsResult.auto_push_result.errors && githubActionsResult.auto_push_result.errors.length > 0 && (
-                              <div className="mt-2">
-                                <div className="text-sm font-medium text-red-700">Errors:</div>
-                                <ul className="text-sm text-red-600 list-disc list-inside">
-                                  {githubActionsResult.auto_push_result.errors.map((error: string, index: number) => (
-                                    <li key={index}>{error}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
                           </div>
                         )}
+                        
+
                       </div>
                     )}
                   </div>
