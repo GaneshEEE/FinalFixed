@@ -22,14 +22,14 @@ export const featureConfigs: Record<NonNullable<FeatureType>, FeatureConfig> = {
     label: 'Video Summarizer',
     icon: Video,
     title: 'Video Summarizer',
-    description: 'Extract insights from video content'
+    description: 'AI-powered video summarization and analysis'
   },
   code: {
     id: 'code',
     label: 'Code Assistant',
     icon: Code,
     title: 'Code Assistant',
-    description: 'Modify and convert code with AI'
+    description: 'AI-powered code modification and conversion'
   },
   impact: {
     id: 'impact',
@@ -43,14 +43,14 @@ export const featureConfigs: Record<NonNullable<FeatureType>, FeatureConfig> = {
     label: 'Test Support Tool',
     icon: TestTube,
     title: 'Test Support Tool',
-    description: 'Generate test strategies and workflows'
+    description: 'AI-powered generation and analysis of test strategies and workflows.'
   },
   image: {
     id: 'image',
     label: 'Chart Builder',
     icon: BarChart3,
     title: 'Chart Builder',
-    description: 'Create charts from images, tables, and data'
+    description: 'AI-powered chart and visualization builder'
   }
 };
 
