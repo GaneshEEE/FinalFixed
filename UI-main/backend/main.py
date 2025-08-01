@@ -2975,8 +2975,25 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
         page_id = page["id"]
         
         # Handle different save modes
-        existing_content = page["body"]["storage"]["value"]
         mode = request.mode or "append"
+        
+        if mode == "new":
+            # Create a new page
+            confluence.create_page(
+                space=space_key,
+                title=request.page_title,
+                body=request.content,
+                representation="storage"
+            )
+            return {"message": "New page created successfully"}
+        
+        # For append and overwrite modes, get existing page
+        page = confluence.get_page_by_title(space=space_key, title=request.page_title, expand='body.storage')
+        if not page:
+            raise HTTPException(status_code=404, detail="Page not found")
+        
+        page_id = page["id"]
+        existing_content = page["body"]["storage"]["value"]
         
         if mode == "append":
             # Append new content to existing content
@@ -2985,7 +3002,7 @@ async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
             # Replace entire content
             updated_body = request.content
         else:
-            raise HTTPException(status_code=400, detail="Invalid mode. Use 'append' or 'overwrite'")
+            raise HTTPException(status_code=400, detail="Invalid mode. Use 'append', 'overwrite', or 'new'")
         
         # Update page
         confluence.update_page(

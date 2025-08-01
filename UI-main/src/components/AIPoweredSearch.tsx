@@ -42,6 +42,8 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
   const [exportFormatSearch, setExportFormatSearch] = useState('');
   const [isExportFormatDropdownOpen, setIsExportFormatDropdownOpen] = useState(false);
   const [saveMode, setSaveMode] = useState('append');
+  const [newPageTitle, setNewPageTitle] = useState('');
+  const [showNewPageInput, setShowNewPageInput] = useState(false);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [previewDiff, setPreviewDiff] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -132,6 +134,16 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
       }
     }
   }, [pages, selectedPages]);
+
+  // Handle save mode change
+  useEffect(() => {
+    if (saveMode === 'new') {
+      setShowNewPageInput(true);
+    } else {
+      setShowNewPageInput(false);
+      setNewPageTitle('');
+    }
+  }, [saveMode]);
 
   const loadSpaces = async () => {
     try {
@@ -590,8 +602,23 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                       >
                         <option value="append">Append</option>
                         <option value="overwrite">Overwrite</option>
+                        <option value="new">New Page</option>
                       </select>
                     </div>
+
+                    {showNewPageInput && (
+                      <div className="flex items-center space-x-2 mb-2">
+                        <label htmlFor="new-page-title" className="text-sm font-medium text-gray-700">New Page Title:</label>
+                        <input
+                          id="new-page-title"
+                          type="text"
+                          value={newPageTitle}
+                          onChange={e => setNewPageTitle(e.target.value)}
+                          placeholder="Enter new page title..."
+                          className="px-3 py-1 border border-white/30 rounded text-sm focus:ring-2 focus:ring-confluence-blue bg-white/70 backdrop-blur-sm flex-1"
+                        />
+                      </div>
+                    )}
 
                     <div className="flex space-x-2">
                       <button
@@ -632,22 +659,48 @@ const AIPoweredSearch: React.FC<AIPoweredSearchProps> = ({
                       </button>
                       <button
                         onClick={async () => {
-                          const { space, page } = getConfluenceSpaceAndPageFromUrl();
-                          if (!space || !page) {
-                            alert('Confluence space or page not specified in macro src URL.');
-                            return;
-                          }
-                          try {
-                            await apiService.saveToConfluence({
-                              space_key: space,
-                              page_title: page,
-                              content: response || '',
-                              mode: saveMode,
-                            });
-                            setShowToast(true);
-                            setTimeout(() => setShowToast(false), 3000);
-                          } catch (err: any) {
-                            alert('Failed to save to Confluence: ' + (err.message || err));
+                          if (saveMode === 'new') {
+                            if (!newPageTitle.trim()) {
+                              alert('Please enter a page title for the new page.');
+                              return;
+                            }
+                            const { space } = getConfluenceSpaceAndPageFromUrl();
+                            if (!space) {
+                              alert('Confluence space not specified in macro src URL.');
+                              return;
+                            }
+                            try {
+                              await apiService.saveToConfluence({
+                                space_key: space,
+                                page_title: newPageTitle.trim(),
+                                content: response || '',
+                                mode: 'new',
+                              });
+                              setShowToast(true);
+                              setTimeout(() => setShowToast(false), 3000);
+                              setNewPageTitle('');
+                              setSaveMode('append');
+                            } catch (err: any) {
+                              alert('Failed to save to Confluence: ' + (err.message || err));
+                            }
+                          } else {
+                            const { space, page } = getConfluenceSpaceAndPageFromUrl();
+                            if (!space || !page) {
+                              alert('Confluence space or page not specified in macro src URL.');
+                              return;
+                            }
+                            try {
+                              await apiService.saveToConfluence({
+                                space_key: space,
+                                page_title: page,
+                                content: response || '',
+                                mode: saveMode,
+                              });
+                              setShowToast(true);
+                              setTimeout(() => setShowToast(false), 3000);
+                            } catch (err: any) {
+                              alert('Failed to save to Confluence: ' + (err.message || err));
+                            }
                           }
                         }}
                         className="flex items-center space-x-2 px-4 py-2 bg-confluence-blue/90 backdrop-blur-sm text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
