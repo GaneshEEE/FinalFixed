@@ -370,13 +370,21 @@ def extract_text_from_file(file_url: str, file_extension: str) -> str:
             return f"Error: Empty file content from {file_url}"
         
         # Extract text based on file type
+        print(f"File extension received: '{file_extension}' (lowercase: '{file_extension.lower()}')")
+        
         if file_extension.lower() == '.pdf':
+            print("Calling PDF extraction function")
             return extract_text_from_pdf(file_content)
         elif file_extension.lower() in ['.docx', '.doc']:
-            return extract_text_from_docx(file_content)
+            print("Calling DOCX extraction function")
+            result = extract_text_from_docx(file_content)
+            print(f"DOCX extraction result: {len(result)} characters")
+            return result
         elif file_extension.lower() == '.txt':
+            print("Calling TXT extraction function")
             return extract_text_from_txt(file_content)
         else:
+            print(f"Unsupported file type: {file_extension}")
             return f"Unsupported file type: {file_extension}"
             
     except requests.exceptions.Timeout:
@@ -2043,7 +2051,7 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
                 print(f"Processing document attachment: {file_name}")
                 try:
                     # Extract file extension
-                    file_extension = file_name.split('.')[-1] if '.' in file_name else 'txt'
+                    file_extension = '.' + file_name.split('.')[-1] if '.' in file_name else '.txt'
                     
                     # Download and extract text from file
                     file_content = extract_text_from_file(file_url, file_extension)
