@@ -95,6 +95,16 @@ class TestRequest(BaseModel):
     test_input_page_title: Optional[str] = None
     question: Optional[str] = None
 
+class DocumentAnalysisRequest(BaseModel):
+    space_key: str
+    document_page_title: str
+
+class DocumentAnalysisResponse(BaseModel):
+    maintainability: str
+    usability: str
+    accessibility: str
+    consistency: str
+
 class GitHubActionsRequest(BaseModel):
     space_key: str
     code_page_title: str
@@ -1913,6 +1923,121 @@ Respond **exactly** in this format with dynamic insights, no extra text outside 
         
     except Exception as e:
         print(f"Test support error: {str(e)}")  # Debug log
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/analyze-document", response_model=DocumentAnalysisResponse)
+async def analyze_document(request: DocumentAnalysisRequest, req: Request):
+    """
+    Analyze a document for maintainability, usability, accessibility, and consistency.
+    """
+    try:
+        print(f"Document analysis started for page: {request.document_page_title}")
+        
+        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
+        genai.configure(api_key=api_key)
+        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
+        
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, getattr(request, 'space_key', None))
+        
+        # Get document page content
+        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=50)
+        document_page = next((p for p in pages if p["title"] == request.document_page_title), None)
+        
+        if not document_page:
+            raise HTTPException(status_code=400, detail="Document page not found")
+        
+        document_data = confluence.get_page_by_id(document_page["id"], expand="body.storage")
+        document_content = document_data["body"]["storage"]["value"]
+        
+        print(f"Found document page: {document_page['title']}, content length: {len(document_content)}")
+        
+        # Clean HTML content
+        soup = BeautifulSoup(document_content, 'html.parser')
+        clean_text = soup.get_text()
+        
+        # Truncate content if too long
+        if len(clean_text) > 8000:
+            clean_text = clean_text[:8000] + "... [Content truncated for analysis]"
+        
+        # Create analysis prompt
+        analysis_prompt = f"""
+        Analyze the following document content for four key aspects of documentation quality. 
+        Provide detailed, actionable feedback for each aspect.
+        
+        Document Content:
+        {clean_text}
+        
+        Please analyze this document for:
+        
+        1. MAINTAINABILITY: Is the documentation easy to update as the system evolves?
+           - Consider: Structure, modularity, version control, update frequency, technical debt
+        
+        2. USABILITY: Is it easy for users or developers to understand?
+           - Consider: Clarity, organization, examples, navigation, target audience
+        
+        3. ACCESSIBILITY: Is the documentation accessible to users with disabilities?
+           - Consider: Screen reader compatibility, color contrast, alternative text, keyboard navigation
+        
+        4. CONSISTENCY: Is there a consistent structure and terminology throughout?
+           - Consider: Formatting, naming conventions, style, tone, terminology
+        
+        For each aspect, provide:
+        - A score (1-10) with brief explanation
+        - Specific strengths
+        - Areas for improvement
+        - Actionable recommendations
+        
+        Return your analysis in a structured format for each aspect.
+        """
+        
+        # Generate analysis
+        response = ai_model.generate_content(analysis_prompt)
+        analysis_text = response.text.strip()
+        
+        # Parse the response into sections
+        sections = analysis_text.split('\n\n')
+        
+        # Initialize default responses
+        maintainability = "Analysis not available"
+        usability = "Analysis not available"
+        accessibility = "Analysis not available"
+        consistency = "Analysis not available"
+        
+        # Try to extract sections based on common patterns
+        current_section = ""
+        for section in sections:
+            section_lower = section.lower()
+            if 'maintainability' in section_lower:
+                maintainability = section.strip()
+            elif 'usability' in section_lower:
+                usability = section.strip()
+            elif 'accessibility' in section_lower:
+                accessibility = section.strip()
+            elif 'consistency' in section_lower:
+                consistency = section.strip()
+        
+        # If sections weren't found, split the response evenly
+        if maintainability == "Analysis not available":
+            parts = analysis_text.split('\n')
+            part_length = len(parts) // 4
+            maintainability = '\n'.join(parts[:part_length])
+            usability = '\n'.join(parts[part_length:part_length*2])
+            accessibility = '\n'.join(parts[part_length*2:part_length*3])
+            consistency = '\n'.join(parts[part_length*3:])
+        
+        result = {
+            "maintainability": maintainability,
+            "usability": usability,
+            "accessibility": accessibility,
+            "consistency": consistency
+        }
+        
+        print(f"Document analysis completed for: {request.document_page_title}")
+        return result
+        
+    except Exception as e:
+        print(f"Document analysis error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/github-actions-integration")

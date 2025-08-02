@@ -172,6 +172,7 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       const { page } = getConfluenceSpaceAndPageFromUrl();
       if (page && result.pages.includes(page)) {
         setCodePage(page);
+        setDocumentPage(page); // Also set document page for document mode
       }
     } catch (err) {
       setError('Failed to load pages. Please check your space key.');
