@@ -2093,7 +2093,7 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         # Create analysis prompt
         analysis_prompt = f"""
         Analyze the following document content for four key aspects of documentation quality. 
-        Provide detailed, actionable feedback for each aspect.
+        Provide detailed, actionable feedback for each aspect in paragraph format.
         
         Document Content:
         {clean_text}
@@ -2101,38 +2101,32 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         Please analyze this document for:
         
         1. MAINTAINABILITY: Is the documentation easy to update as the system evolves?
-           - Consider: Structure, modularity, version control, update frequency, technical debt
+           Consider: Structure, modularity, version control, update frequency, technical debt
         
         2. USABILITY: Is it easy for users or developers to understand?
-           - Consider: Clarity, organization, examples, navigation, target audience
+           Consider: Clarity, organization, examples, navigation, target audience
         
         3. ACCESSIBILITY: Is the documentation accessible to users with disabilities?
-           - Consider: Screen reader compatibility, color contrast, alternative text, keyboard navigation
+           Consider: Screen reader compatibility, color contrast, alternative text, keyboard navigation
         
         4. CONSISTENCY: Is there a consistent structure and terminology throughout?
-           - Consider: Formatting, naming conventions, style, tone, terminology
+           Consider: Formatting, naming conventions, style, tone, terminology
         
-        For each aspect, provide:
-        - A score (1-10) with brief explanation
-        - Specific strengths
-        - Areas for improvement
-        - Actionable recommendations
-        
-        IMPORTANT: Structure your response exactly as follows:
+        IMPORTANT: Structure your response exactly as follows with each section written as a comprehensive paragraph:
         
         ## MAINTAINABILITY
-        [Your detailed analysis here]
+        [Write a detailed paragraph analyzing the maintainability aspects of the documentation. Include observations about structure, modularity, version control practices, update frequency, and any technical debt. Provide specific examples from the content and actionable recommendations for improvement.]
         
         ## USABILITY  
-        [Your detailed analysis here]
+        [Write a detailed paragraph analyzing the usability aspects of the documentation. Include observations about clarity, organization, presence of examples, navigation structure, and appropriateness for the target audience. Provide specific examples from the content and actionable recommendations for improvement.]
         
         ## ACCESSIBILITY
-        [Your detailed analysis here]
+        [Write a detailed paragraph analyzing the accessibility aspects of the documentation. Include observations about screen reader compatibility, color contrast considerations, alternative text usage, keyboard navigation support, and overall accessibility features. Provide specific examples from the content and actionable recommendations for improvement.]
         
         ## CONSISTENCY
-        [Your detailed analysis here]
+        [Write a detailed paragraph analyzing the consistency aspects of the documentation. Include observations about formatting consistency, naming conventions, writing style, tone, and terminology usage throughout the document. Provide specific examples from the content and actionable recommendations for improvement.]
         
-        Each section should be clearly separated and contain comprehensive analysis.
+        Each section should be written as a comprehensive paragraph that flows naturally and provides thorough analysis with specific examples and actionable insights.
         """
         
         # Generate analysis
