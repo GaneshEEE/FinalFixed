@@ -1952,9 +1952,39 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         
         print(f"Found document page: {document_page['title']}, content length: {len(document_content)}")
         
-        # Clean HTML content
-        soup = BeautifulSoup(document_content, 'html.parser')
-        clean_text = soup.get_text()
+        # Get attachments to check for Word/PDF/TXT files
+        attachments = get_page_attachments(confluence, document_page["id"])
+        print(f"Found {len(attachments)} attachments")
+        
+        # Look for document files in attachments
+        document_text = ""
+        for attachment in attachments:
+            file_name = attachment.get('title', '').lower()
+            file_url = attachment.get('url', '')
+            
+            if any(ext in file_name for ext in ['.docx', '.doc', '.pdf', '.txt']):
+                print(f"Processing document attachment: {file_name}")
+                try:
+                    # Extract file extension
+                    file_extension = file_name.split('.')[-1] if '.' in file_name else 'txt'
+                    
+                    # Download and extract text from file
+                    file_content = extract_text_from_file(file_url, file_extension)
+                    if file_content:
+                        document_text += f"\n\n--- Content from {file_name} ---\n{file_content}"
+                        print(f"Successfully extracted {len(file_content)} characters from {file_name}")
+                except Exception as e:
+                    print(f"Error extracting content from {file_name}: {str(e)}")
+        
+        # If no document files found in attachments, use page content
+        if not document_text.strip():
+            print("No document attachments found, using page content")
+            # Clean HTML content
+            soup = BeautifulSoup(document_content, 'html.parser')
+            clean_text = soup.get_text()
+        else:
+            # Use extracted document content
+            clean_text = document_text
         
         # Truncate content if too long
         if len(clean_text) > 8000:
@@ -1988,15 +2018,29 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         - Areas for improvement
         - Actionable recommendations
         
-        Return your analysis in a structured format for each aspect.
+        IMPORTANT: Structure your response exactly as follows:
+        
+        ## MAINTAINABILITY
+        [Your detailed analysis here]
+        
+        ## USABILITY  
+        [Your detailed analysis here]
+        
+        ## ACCESSIBILITY
+        [Your detailed analysis here]
+        
+        ## CONSISTENCY
+        [Your detailed analysis here]
+        
+        Each section should be clearly separated and contain comprehensive analysis.
         """
         
         # Generate analysis
         response = ai_model.generate_content(analysis_prompt)
         analysis_text = response.text.strip()
         
-        # Parse the response into sections
-        sections = analysis_text.split('\n\n')
+        # Parse the response into sections using markdown headers
+        sections = analysis_text.split('## ')
         
         # Initialize default responses
         maintainability = "Analysis not available"
@@ -2004,20 +2048,38 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         accessibility = "Analysis not available"
         consistency = "Analysis not available"
         
-        # Try to extract sections based on common patterns
-        current_section = ""
+        # Extract sections based on markdown headers
         for section in sections:
-            section_lower = section.lower()
-            if 'maintainability' in section_lower:
-                maintainability = section.strip()
-            elif 'usability' in section_lower:
-                usability = section.strip()
-            elif 'accessibility' in section_lower:
-                accessibility = section.strip()
-            elif 'consistency' in section_lower:
-                consistency = section.strip()
+            if section.strip():
+                lines = section.strip().split('\n')
+                header = lines[0].strip().upper()
+                content = '\n'.join(lines[1:]).strip()
+                
+                if 'MAINTAINABILITY' in header:
+                    maintainability = content
+                elif 'USABILITY' in header:
+                    usability = content
+                elif 'ACCESSIBILITY' in header:
+                    accessibility = content
+                elif 'CONSISTENCY' in header:
+                    consistency = content
         
-        # If sections weren't found, split the response evenly
+        # If sections weren't found, try alternative parsing
+        if maintainability == "Analysis not available":
+            # Try splitting by numbered sections
+            sections = analysis_text.split('\n\n')
+            for section in sections:
+                section_lower = section.lower()
+                if 'maintainability' in section_lower:
+                    maintainability = section.strip()
+                elif 'usability' in section_lower:
+                    usability = section.strip()
+                elif 'accessibility' in section_lower:
+                    accessibility = section.strip()
+                elif 'consistency' in section_lower:
+                    consistency = section.strip()
+        
+        # Final fallback: split the response evenly
         if maintainability == "Analysis not available":
             parts = analysis_text.split('\n')
             part_length = len(parts) // 4

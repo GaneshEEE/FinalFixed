@@ -81,6 +81,7 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   const testStrategyRef = useRef<HTMLDivElement>(null);
   const crossPlatformRef = useRef<HTMLDivElement>(null);
   const sensitivityRef = useRef<HTMLDivElement>(null);
+  const documentAnalysisRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to active tab content when it's generated
   useEffect(() => {
@@ -110,6 +111,18 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       }
     }
   }, [testReport]);
+
+  // Auto-scroll to document analysis results when they are generated
+  useEffect(() => {
+    if (documentAnalysis && documentAnalysisRef.current) {
+      setTimeout(() => {
+        documentAnalysisRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
+    }
+  }, [documentAnalysis]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -1331,7 +1344,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
               {/* Document Analysis Results */}
               {documentAnalysis && (
-                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                <div ref={documentAnalysisRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <FileCheck className="w-5 h-5 mr-2 text-green-600" />
                     Document Analysis Results
