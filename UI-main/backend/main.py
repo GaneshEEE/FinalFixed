@@ -347,9 +347,13 @@ def create_pptx_with_image(image_data_base64, title="Chart"):
 def extract_text_from_file(file_url: str, file_extension: str) -> str:
     """Extract text content from various file types"""
     try:
+        print(f"Downloading file from: {file_url}")
         # Download the file
         auth = (os.getenv('CONFLUENCE_USER_EMAIL'), os.getenv('CONFLUENCE_API_KEY'))
         response = requests.get(file_url, auth=auth, timeout=30)
+        
+        print(f"Download response status: {response.status_code}")
+        print(f"Download response headers: {dict(response.headers)}")
         
         if response.status_code == 404:
             return f"Error: File not found at URL: {file_url}"
@@ -359,6 +363,7 @@ def extract_text_from_file(file_url: str, file_extension: str) -> str:
             return f"Error: HTTP {response.status_code} when downloading file from {file_url}"
         
         file_content = response.content
+        print(f"Downloaded file size: {len(file_content)} bytes")
         
         # Check if content is empty
         if not file_content:
@@ -396,13 +401,23 @@ def extract_text_from_pdf(pdf_content: bytes) -> str:
 def extract_text_from_docx(docx_content: bytes) -> str:
     """Extract text from DOCX content"""
     try:
+        print(f"Extracting text from DOCX file, content size: {len(docx_content)} bytes")
         docx_file = io.BytesIO(docx_content)
         doc = Document(docx_file)
+        
         text = ""
+        paragraph_count = 0
         for paragraph in doc.paragraphs:
-            text += paragraph.text + "\n"
+            if paragraph.text.strip():  # Only add non-empty paragraphs
+                text += paragraph.text + "\n"
+                paragraph_count += 1
+        
+        print(f"Extracted {len(text)} characters from {paragraph_count} paragraphs")
+        print(f"First 200 characters: {text[:200]}")
+        
         return text.strip()
     except Exception as e:
+        print(f"Error reading DOCX: {str(e)}")
         return f"Error reading DOCX: {str(e)}"
 
 def extract_text_from_txt(txt_content: bytes) -> str:
