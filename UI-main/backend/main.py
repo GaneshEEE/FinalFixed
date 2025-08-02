@@ -2093,7 +2093,7 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         # Create analysis prompt
         analysis_prompt = f"""
         Analyze the following document content for four key aspects of documentation quality. 
-        Provide detailed, actionable feedback for each aspect in paragraph format.
+        Provide concise, actionable feedback for each aspect.
         
         Document Content:
         {clean_text}
@@ -2101,32 +2101,38 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         Please analyze this document for:
         
         1. MAINTAINABILITY: Is the documentation easy to update as the system evolves?
-           Consider: Structure, modularity, version control, update frequency, technical debt
+           - Consider: Structure, modularity, version control, update frequency, technical debt
         
         2. USABILITY: Is it easy for users or developers to understand?
-           Consider: Clarity, organization, examples, navigation, target audience
+           - Consider: Clarity, organization, examples, navigation, target audience
         
         3. ACCESSIBILITY: Is the documentation accessible to users with disabilities?
-           Consider: Screen reader compatibility, color contrast, alternative text, keyboard navigation
+           - Consider: Screen reader compatibility, color contrast, alternative text, keyboard navigation
         
         4. CONSISTENCY: Is there a consistent structure and terminology throughout?
-           Consider: Formatting, naming conventions, style, tone, terminology
+           - Consider: Formatting, naming conventions, style, tone, terminology
         
-        IMPORTANT: Structure your response exactly as follows with each section written as a comprehensive paragraph:
+        For each aspect, provide:
+        - A score (1-10) with brief explanation
+        - Key strengths (2-3 points)
+        - Main areas for improvement (2-3 points)
+        - Top 2-3 actionable recommendations
+        
+        IMPORTANT: Structure your response exactly as follows:
         
         ## MAINTAINABILITY
-        [Write a detailed paragraph analyzing the maintainability aspects of the documentation. Include observations about structure, modularity, version control practices, update frequency, and any technical debt. Provide specific examples from the content and actionable recommendations for improvement.]
+        [Concise analysis with score, strengths, improvements, and recommendations]
         
         ## USABILITY  
-        [Write a detailed paragraph analyzing the usability aspects of the documentation. Include observations about clarity, organization, presence of examples, navigation structure, and appropriateness for the target audience. Provide specific examples from the content and actionable recommendations for improvement.]
+        [Concise analysis with score, strengths, improvements, and recommendations]
         
         ## ACCESSIBILITY
-        [Write a detailed paragraph analyzing the accessibility aspects of the documentation. Include observations about screen reader compatibility, color contrast considerations, alternative text usage, keyboard navigation support, and overall accessibility features. Provide specific examples from the content and actionable recommendations for improvement.]
+        [Concise analysis with score, strengths, improvements, and recommendations]
         
         ## CONSISTENCY
-        [Write a detailed paragraph analyzing the consistency aspects of the documentation. Include observations about formatting consistency, naming conventions, writing style, tone, and terminology usage throughout the document. Provide specific examples from the content and actionable recommendations for improvement.]
+        [Concise analysis with score, strengths, improvements, and recommendations]
         
-        Each section should be written as a comprehensive paragraph that flows naturally and provides thorough analysis with specific examples and actionable insights.
+        Keep each section focused and actionable. Avoid lengthy explanations.
         """
         
         # Generate analysis
