@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TestTube, BarChart3, Code, FileCheck, Download, Save, X, ChevronDown, Loader2, MessageSquare, Play, Search, Video, TrendingUp, Image, ChevronUp, Check, Zap, CheckCircle, XCircle } from 'lucide-react';
 import { FeatureType, AppMode } from '../App';
-import { apiService, Space } from '../services/api';
+import { apiService, Space, DocumentAnalysisResponse } from '../services/api';
 import CustomScrollbar from './CustomScrollbar';
 import ReactMarkdown from 'react-markdown';
 import { getConfluenceSpaceAndPageFromUrl } from '../utils/urlUtils';
@@ -54,6 +54,13 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   const [isCodePageDropdownOpen, setIsCodePageDropdownOpen] = useState(false);
   const [testInputPageSearch, setTestInputPageSearch] = useState('');
   const [isTestInputPageDropdownOpen, setIsTestInputPageDropdownOpen] = useState(false);
+  const [activeAnalysisTab, setActiveAnalysisTab] = useState<'strategy' | 'crossPlatform' | 'sensitivity'>('strategy');
+  const [selectionMode, setSelectionMode] = useState<'component' | 'document'>('component');
+  const [documentPage, setDocumentPage] = useState('');
+  const [documentPageSearch, setDocumentPageSearch] = useState('');
+  const [isDocumentPageDropdownOpen, setIsDocumentPageDropdownOpen] = useState(false);
+  const [documentAnalysis, setDocumentAnalysis] = useState<DocumentAnalysisResponse | null>(null);
+  const [isDocumentAnalyzing, setIsDocumentAnalyzing] = useState(false);
 
   // GitHub Actions Integration State
   const [showGitHubActions, setShowGitHubActions] = useState(false);
@@ -75,41 +82,34 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
   const crossPlatformRef = useRef<HTMLDivElement>(null);
   const sensitivityRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to test strategy when it's generated
+  // Auto-scroll to active tab content when it's generated
   useEffect(() => {
-    if (testReport?.strategy && testStrategyRef.current) {
+    const currentRef = activeAnalysisTab === 'strategy' ? testStrategyRef.current :
+                      activeAnalysisTab === 'crossPlatform' ? crossPlatformRef.current :
+                      activeAnalysisTab === 'sensitivity' ? sensitivityRef.current : null;
+    
+    if (currentRef) {
       setTimeout(() => {
-        testStrategyRef.current?.scrollIntoView({
+        currentRef.scrollIntoView({
           behavior: 'smooth',
           block: 'start'
         });
       }, 100);
     }
-  }, [testReport?.strategy]);
+  }, [activeAnalysisTab, testReport]);
 
-  // Auto-scroll to cross-platform results when they are generated
+  // Auto-select first available tab when analyses are generated
   useEffect(() => {
-    if (testReport?.crossPlatform && crossPlatformRef.current) {
-      setTimeout(() => {
-        crossPlatformRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
+    if (testReport) {
+      if (testReport.strategy && activeAnalysisTab !== 'strategy') {
+        setActiveAnalysisTab('strategy');
+      } else if (testReport.crossPlatform && activeAnalysisTab !== 'crossPlatform') {
+        setActiveAnalysisTab('crossPlatform');
+      } else if (testReport.sensitivity && activeAnalysisTab !== 'sensitivity') {
+        setActiveAnalysisTab('sensitivity');
+      }
     }
-  }, [testReport?.crossPlatform]);
-
-  // Auto-scroll to sensitivity results when they are generated
-  useEffect(() => {
-    if (testReport?.sensitivity && sensitivityRef.current) {
-      setTimeout(() => {
-        sensitivityRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
-    }
-  }, [testReport?.sensitivity]);
+  }, [testReport]);
 
   const features = [
     { id: 'search' as const, label: 'AI Powered Search', icon: Search },
@@ -273,6 +273,72 @@ const TestSupportTool: React.FC<TestSupportToolProps> = ({ onClose, onFeatureSel
       console.error('Error generating sensitivity analysis:', err);
     } finally {
       setIsGenerating('');
+    }
+  };
+
+  const generateAllAnalyses = async () => {
+    if (!selectedSpace || !codePage) {
+      setError('Please select a space and code page.');
+      return;
+    }
+
+    setIsGenerating('all');
+    setError('');
+
+    try {
+      console.log('Calling test support API for all analyses...');
+      const result = await apiService.testSupport({
+        space_key: selectedSpace,
+        code_page_title: codePage,
+        test_input_page_title: testInputPage || undefined
+      });
+
+      console.log('All analyses API response:', result);
+
+      setTestReport({
+        strategy: result.test_strategy || 'No test strategy generated.',
+        crossPlatform: (result.cross_platform_testing || 'No cross-platform analysis generated.').replace(/\u2192/g, '->'),
+        sensitivity: (result.sensitivity_analysis || 'No sensitivity analysis generated.')
+      } as TestReport);
+    } catch (err) {
+      console.error('All analyses API error:', err);
+      setError('Failed to generate analyses. Please try again.');
+      console.error('Error generating all analyses:', err);
+    } finally {
+      setIsGenerating('');
+    }
+  };
+
+  const analyzeDocument = async () => {
+    if (!selectedSpace || !documentPage) {
+      setError('Please select a space and document page.');
+      return;
+    }
+
+    setIsDocumentAnalyzing(true);
+    setError('');
+
+    try {
+      console.log('Calling document analysis API...');
+      const result = await apiService.analyzeDocument({
+        space_key: selectedSpace,
+        document_page_title: documentPage
+      });
+
+      console.log('Document analysis API response:', result);
+
+      setDocumentAnalysis({
+        maintainability: result.maintainability || 'No maintainability analysis generated.',
+        usability: result.usability || 'No usability analysis generated.',
+        accessibility: result.accessibility || 'No accessibility analysis generated.',
+        consistency: result.consistency || 'No consistency analysis generated.'
+      });
+    } catch (err) {
+      console.error('Document analysis API error:', err);
+      setError('Failed to analyze document. Please try again.');
+      console.error('Error analyzing document:', err);
+    } finally {
+      setIsDocumentAnalyzing(false);
     }
   };
 
@@ -517,10 +583,19 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
             {/* Left Column - Configuration */}
             <div className="xl:col-span-1">
               <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 space-y-6 border border-white/20 shadow-lg">
-                <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-                  <FileCheck className="w-5 h-5 mr-2" />
-                  Component Selection
-                </h3>
+                {/* Mode Toggle */}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-800 flex items-center">
+                    <FileCheck className="w-5 h-5 mr-2" />
+                    {selectionMode === 'component' ? 'Component Selection' : 'Document Selection'}
+                  </h3>
+                  <button
+                    onClick={() => setSelectionMode(selectionMode === 'component' ? 'document' : 'component')}
+                    className="px-3 py-1 text-sm bg-confluence-blue/90 text-white rounded-lg hover:bg-confluence-blue transition-colors border border-white/10"
+                  >
+                    Switch to {selectionMode === 'component' ? 'Document' : 'Component'}
+                  </button>
+                </div>
                 
                 {/* Space Selection */}
                 <div>
@@ -542,170 +617,218 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                   </div>
                 </div>
 
-                {/* Code Page Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Code Page
-                  </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsCodePageDropdownOpen(!isCodePageDropdownOpen)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
-                    >
-                      <span className={codePage === '' ? 'text-gray-500' : 'text-gray-700'}>
-                        {codePage === '' ? 'Select code page...' : codePage}
-                      </span>
-                      {isCodePageDropdownOpen ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
-                      )}
-                    </button>
-                    {isCodePageDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
-                        <div className="p-3 border-b border-white/20 bg-white/50">
-                          <input
-                            type="text"
-                            value={codePageSearch}
-                            onChange={e => setCodePageSearch(e.target.value)}
-                            placeholder="Search pages..."
-                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
-                          />
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {(pages.filter(page => page.toLowerCase().includes(codePageSearch.toLowerCase()))).length === 0 ? (
-                            <div className="p-3 text-gray-500 text-sm text-center">
-                              No pages found
-                            </div>
+                {/* Component Selection Mode */}
+                {selectionMode === 'component' && (
+                  <>
+                    {/* Code Page Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Code Page
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsCodePageDropdownOpen(!isCodePageDropdownOpen)}
+                          className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
+                        >
+                          <span className={codePage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                            {codePage === '' ? 'Select code page...' : codePage}
+                          </span>
+                          {isCodePageDropdownOpen ? (
+                            <ChevronUp className="w-5 h-5 text-gray-400" />
                           ) : (
-                            pages.filter(page => page.toLowerCase().includes(codePageSearch.toLowerCase())).map(page => (
-                              <button
-                                key={page}
-                                type="button"
-                                onClick={() => { setCodePage(page); setIsCodePageDropdownOpen(false); setCodePageSearch(''); }}
-                                className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${codePage === page ? 'bg-confluence-blue/10' : ''}`}
-                              >
-                                <span className="text-sm text-gray-700 flex-1">{page}</span>
-                                {codePage === page && <Check className="w-4 h-4 text-confluence-blue" />}
-                              </button>
-                            ))
+                            <ChevronDown className="w-5 h-5 text-gray-400" />
                           )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                {/* Test Input Page Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Test Input Page
-                  </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setIsTestInputPageDropdownOpen(!isTestInputPageDropdownOpen)}
-                      className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
-                    >
-                      <span className={testInputPage === '' ? 'text-gray-500' : 'text-gray-700'}>
-                        {testInputPage === '' ? 'Select test page...' : testInputPage}
-                      </span>
-                      {isTestInputPageDropdownOpen ? (
-                        <ChevronUp className="w-5 h-5 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
-                      )}
-                    </button>
-                    {isTestInputPageDropdownOpen && (
-                      <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
-                        <div className="p-3 border-b border-white/20 bg-white/50">
-                          <input
-                            type="text"
-                            value={testInputPageSearch}
-                            onChange={e => setTestInputPageSearch(e.target.value)}
-                            placeholder="Search pages..."
-                            className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
-                          />
-                        </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {(pages.filter(page => page.toLowerCase().includes(testInputPageSearch.toLowerCase()))).length === 0 ? (
-                            <div className="p-3 text-gray-500 text-sm text-center">
-                              No pages found
+                        </button>
+                        {isCodePageDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                            <div className="p-3 border-b border-white/20 bg-white/50">
+                              <input
+                                type="text"
+                                value={codePageSearch}
+                                onChange={e => setCodePageSearch(e.target.value)}
+                                placeholder="Search pages..."
+                                className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                              />
                             </div>
-                          ) : (
-                            pages.filter(page => page.toLowerCase().includes(testInputPageSearch.toLowerCase())).map(page => (
-                              <button
-                                key={page}
-                                type="button"
-                                onClick={() => { setTestInputPage(page); setIsTestInputPageDropdownOpen(false); setTestInputPageSearch(''); }}
-                                className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${testInputPage === page ? 'bg-confluence-blue/10' : ''}`}
-                              >
-                                <span className="text-sm text-gray-700 flex-1">{page}</span>
-                                {testInputPage === page && <Check className="w-4 h-4 text-confluence-blue" />}
-                              </button>
-                            ))
-                          )}
-                        </div>
+                            <div className="max-h-48 overflow-y-auto">
+                              {(pages.filter(page => page.toLowerCase().includes(codePageSearch.toLowerCase()))).length === 0 ? (
+                                <div className="p-3 text-gray-500 text-sm text-center">
+                                  No pages found
+                                </div>
+                              ) : (
+                                pages.filter(page => page.toLowerCase().includes(codePageSearch.toLowerCase())).map(page => (
+                                  <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => { setCodePage(page); setIsCodePageDropdownOpen(false); setCodePageSearch(''); }}
+                                    className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${codePage === page ? 'bg-confluence-blue/10' : ''}`}
+                                  >
+                                    <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                    {codePage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
+                    {/* Test Input Page Selection */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Test Input Page
+                      </label>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsTestInputPageDropdownOpen(!isTestInputPageDropdownOpen)}
+                          className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
+                        >
+                          <span className={testInputPage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                            {testInputPage === '' ? 'Select test page...' : testInputPage}
+                          </span>
+                          {isTestInputPageDropdownOpen ? (
+                            <ChevronUp className="w-5 h-5 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-gray-400" />
+                          )}
+                        </button>
+                        {isTestInputPageDropdownOpen && (
+                          <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                            <div className="p-3 border-b border-white/20 bg-white/50">
+                              <input
+                                type="text"
+                                value={testInputPageSearch}
+                                onChange={e => setTestInputPageSearch(e.target.value)}
+                                placeholder="Search pages..."
+                                className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                              />
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                              {(pages.filter(page => page.toLowerCase().includes(testInputPageSearch.toLowerCase()))).length === 0 ? (
+                                <div className="p-3 text-gray-500 text-sm text-center">
+                                  No pages found
+                                </div>
+                              ) : (
+                                pages.filter(page => page.toLowerCase().includes(testInputPageSearch.toLowerCase())).map(page => (
+                                  <button
+                                    key={page}
+                                    type="button"
+                                    onClick={() => { setTestInputPage(page); setIsTestInputPageDropdownOpen(false); setTestInputPageSearch(''); }}
+                                    className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${testInputPage === page ? 'bg-confluence-blue/10' : ''}`}
+                                  >
+                                    <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                    {testInputPage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                                  </button>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Document Selection Mode */}
+                {selectionMode === 'document' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Document Page
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsDocumentPageDropdownOpen(!isDocumentPageDropdownOpen)}
+                        className="w-full p-3 border border-white/30 rounded-lg focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/70 backdrop-blur-sm text-left flex items-center justify-between"
+                      >
+                        <span className={documentPage === '' ? 'text-gray-500' : 'text-gray-700'}>
+                          {documentPage === '' ? 'Select document page...' : documentPage}
+                        </span>
+                        {isDocumentPageDropdownOpen ? (
+                          <ChevronUp className="w-5 h-5 text-gray-400" />
+                        ) : (
+                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                        )}
+                      </button>
+                      {isDocumentPageDropdownOpen && (
+                        <div className="absolute z-50 w-full mt-1 bg-white/95 backdrop-blur-xl border border-white/30 rounded-lg shadow-xl max-h-60 overflow-hidden">
+                          <div className="p-3 border-b border-white/20 bg-white/50">
+                            <input
+                              type="text"
+                              value={documentPageSearch}
+                              onChange={e => setDocumentPageSearch(e.target.value)}
+                              placeholder="Search pages..."
+                              className="w-full px-3 py-2 border border-white/20 rounded-lg text-sm focus:ring-2 focus:ring-confluence-blue focus:border-confluence-blue bg-white/80 placeholder-gray-400 mb-1"
+                            />
+                          </div>
+                          <div className="max-h-48 overflow-y-auto">
+                            {(pages.filter(page => page.toLowerCase().includes(documentPageSearch.toLowerCase()))).length === 0 ? (
+                              <div className="p-3 text-gray-500 text-sm text-center">
+                                No pages found
+                              </div>
+                            ) : (
+                              pages.filter(page => page.toLowerCase().includes(documentPageSearch.toLowerCase())).map(page => (
+                                <button
+                                  key={page}
+                                  type="button"
+                                  onClick={() => { setDocumentPage(page); setIsDocumentPageDropdownOpen(false); setDocumentPageSearch(''); }}
+                                  className={`w-full text-left flex items-center space-x-3 p-3 hover:bg-white/50 cursor-pointer border-b border-white/10 last:border-b-0 ${documentPage === page ? 'bg-confluence-blue/10' : ''}`}
+                                >
+                                  <span className="text-sm text-gray-700 flex-1">{page}</span>
+                                  {documentPage === page && <Check className="w-4 h-4 text-confluence-blue" />}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Generation Buttons */}
                 <div className="space-y-3">
-                  <button
-                    onClick={generateTestStrategy}
-                    disabled={!selectedSpace || !codePage || isGenerating === 'strategy'}
-                    className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
-                  >
-                    {isGenerating === 'strategy' ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Generating...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4" />
-                        <span>Generate Strategy</span>
-                      </>
-                    )}
-                  </button>
+                  {selectionMode === 'component' && (
+                    <button
+                      onClick={generateAllAnalyses}
+                      disabled={!selectedSpace || !codePage || isGenerating === 'all'}
+                      className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
+                    >
+                      {isGenerating === 'all' ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Generating All Analyses...</span>
+                        </>
+                      ) : (
+                        <>
+                          <TestTube className="w-4 h-4" />
+                          <span>Generate All Analyses</span>
+                        </>
+                      )}
+                    </button>
+                  )}
 
-                  <button
-                    onClick={generateCrossPlatform}
-                    disabled={!selectedSpace || !codePage || isGenerating === 'crossplatform'}
-                    className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
-                  >
-                    {isGenerating === 'crossplatform' ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Analyzing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Code className="w-4 h-4" />
-                        <span>Cross-Platform</span>
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={generateSensitivity}
-                    disabled={!selectedSpace || !codePage || isGenerating === 'sensitivity'}
-                    className="w-full bg-confluence-blue/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-confluence-blue disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
-                  >
-                    {isGenerating === 'sensitivity' ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Analyzing...</span>
-                      </>
-                    ) : (
-                      <>
-                        <TestTube className="w-4 h-4" />
-                        <span>Sensitivity Check</span>
-                      </>
-                    )}
-                  </button>
+                  {selectionMode === 'document' && (
+                    <button
+                      onClick={analyzeDocument}
+                      disabled={!selectedSpace || !documentPage || isDocumentAnalyzing}
+                      className="w-full bg-green-600/90 backdrop-blur-sm text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2 transition-colors border border-white/10"
+                    >
+                      {isDocumentAnalyzing ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Analyzing Document...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileCheck className="w-4 h-4" />
+                          <span>Analyze Document</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* GitHub Actions Integration Section */}
@@ -1080,80 +1203,190 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
             {/* Middle Columns - Generated Content */}
             <div className="xl:col-span-2 space-y-6">
-              {/* Test Strategy */}
-              {testReport?.strategy && (
-                <div ref={testStrategyRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
-                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-                    <Play className="w-5 h-5 mr-2 text-confluence-blue" />
-                    Test Strategy
-                  </h3>
+              {/* Analysis Tabs */}
+              {testReport && (testReport.strategy || testReport.crossPlatform || testReport.sensitivity) && (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+                  {/* Tab Navigation */}
+                  <div className="flex space-x-2 border-b border-white/20 mb-4">
+                    {testReport.strategy && (
+                      <button
+                        onClick={() => setActiveAnalysisTab('strategy')}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center space-x-2 ${
+                          activeAnalysisTab === 'strategy'
+                            ? 'bg-confluence-blue/10 text-confluence-blue border-b-2 border-confluence-blue'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-white/20'
+                        }`}
+                      >
+                        <Play className="w-4 h-4" />
+                        <span>Test Strategy</span>
+                      </button>
+                    )}
+                    {testReport.crossPlatform && (
+                      <button
+                        onClick={() => setActiveAnalysisTab('crossPlatform')}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center space-x-2 ${
+                          activeAnalysisTab === 'crossPlatform'
+                            ? 'bg-confluence-blue/10 text-confluence-blue border-b-2 border-confluence-blue'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-white/20'
+                        }`}
+                      >
+                        <Code className="w-4 h-4" />
+                        <span>Cross-Platform</span>
+                      </button>
+                    )}
+                    {testReport.sensitivity && (
+                      <button
+                        onClick={() => setActiveAnalysisTab('sensitivity')}
+                        className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors flex items-center space-x-2 ${
+                          activeAnalysisTab === 'sensitivity'
+                            ? 'bg-confluence-blue/10 text-confluence-blue border-b-2 border-confluence-blue'
+                            : 'text-gray-600 hover:text-gray-800 hover:bg-white/20'
+                        }`}
+                      >
+                        <TestTube className="w-4 h-4" />
+                        <span>Sensitivity</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Tab Content */}
                   <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20 prose prose-sm max-w-none">
-                    {testReport.strategy.split('\n').map((line, index) => {
-                      if (line.startsWith('### ')) {
-                        return <h3 key={index} className="text-lg font-bold text-gray-800 mt-4 mb-2">{line.substring(4)}</h3>;
-                      } else if (line.startsWith('## ')) {
-                        return <h2 key={index} className="text-xl font-bold text-gray-800 mt-6 mb-3">{line.substring(3)}</h2>;
-                      } else if (line.startsWith('# ')) {
-                        return <h1 key={index} className="text-2xl font-bold text-gray-800 mt-8 mb-4">{line.substring(2)}</h1>;
-                      } else if (line.startsWith('- **')) {
-                        const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
-                        if (match) {
-                          return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
-                        }
-                      } else if (line.startsWith('- ')) {
-                        return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
-                      } else if (line.trim()) {
-                        return <p key={index} className="mb-2 text-gray-700">{line}</p>;
-                      }
-                      return <br key={index} />;
-                    })}
+                    {activeAnalysisTab === 'strategy' && testReport.strategy && (
+                      <div ref={testStrategyRef}>
+                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                          <Play className="w-5 h-5 mr-2 text-confluence-blue" />
+                          Test Strategy
+                        </h3>
+                        <div>
+                          {testReport.strategy.split('\n').map((line, index) => {
+                            if (line.startsWith('### ')) {
+                              return <h3 key={index} className="text-lg font-bold text-gray-800 mt-4 mb-2">{line.substring(4)}</h3>;
+                            } else if (line.startsWith('## ')) {
+                              return <h2 key={index} className="text-xl font-bold text-gray-800 mt-6 mb-3">{line.substring(3)}</h2>;
+                            } else if (line.startsWith('# ')) {
+                              return <h1 key={index} className="text-2xl font-bold text-gray-800 mt-8 mb-4">{line.substring(2)}</h1>;
+                            } else if (line.startsWith('- **')) {
+                              const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
+                              if (match) {
+                                return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
+                              }
+                            } else if (line.startsWith('- ')) {
+                              return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
+                            } else if (line.trim()) {
+                              return <p key={index} className="mb-2 text-gray-700">{line}</p>;
+                            }
+                            return <br key={index} />;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeAnalysisTab === 'crossPlatform' && testReport.crossPlatform && (
+                      <div ref={crossPlatformRef}>
+                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                          <Code className="w-5 h-5 mr-2 text-confluence-blue" />
+                          Cross-Platform Analysis
+                        </h3>
+                        <div>
+                          {testReport.crossPlatform.split('\n').map((line, index) => {
+                            if (line.startsWith('### ')) {
+                              return <h3 key={index} className="text-lg font-bold text-gray-800 mt-4 mb-2">{line.substring(4)}</h3>;
+                            } else if (line.startsWith('## ')) {
+                              return <h2 key={index} className="text-xl font-bold text-gray-800 mt-6 mb-3">{line.substring(3)}</h2>;
+                            } else if (line.startsWith('# ')) {
+                              return <h1 key={index} className="text-2xl font-bold text-gray-800 mt-8 mb-4">{line.substring(2)}</h1>;
+                            } else if (line.startsWith('- **')) {
+                              const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
+                              if (match) {
+                                return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
+                              }
+                            } else if (line.startsWith('- ')) {
+                              return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
+                            } else if (line.trim()) {
+                              return <p key={index} className="mb-2 text-gray-700">{line}</p>;
+                            }
+                            return <br key={index} />;
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {activeAnalysisTab === 'sensitivity' && testReport.sensitivity && (
+                      <div ref={sensitivityRef}>
+                        <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
+                          <TestTube className="w-5 h-5 mr-2 text-confluence-blue" />
+                          Sensitivity Analysis
+                        </h3>
+                        <div className="prose prose-sm max-w-none text-gray-800">
+                          <ReactMarkdown>
+                            {testReport.sensitivity}
+                          </ReactMarkdown>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Cross-Platform Analysis */}
-              {testReport?.crossPlatform && (
-                <div ref={crossPlatformRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
+              {/* Document Analysis Results */}
+              {documentAnalysis && (
+                <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-                    <Code className="w-5 h-5 mr-2 text-confluence-blue" />
-                    Cross-Platform Analysis
+                    <FileCheck className="w-5 h-5 mr-2 text-green-600" />
+                    Document Analysis Results
                   </h3>
-                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20 prose prose-sm max-w-none">
-                    {testReport.crossPlatform.split('\n').map((line, index) => {
-                      if (line.startsWith('### ')) {
-                        return <h3 key={index} className="text-lg font-bold text-gray-800 mt-4 mb-2">{line.substring(4)}</h3>;
-                      } else if (line.startsWith('## ')) {
-                        return <h2 key={index} className="text-xl font-bold text-gray-800 mt-6 mb-3">{line.substring(3)}</h2>;
-                      } else if (line.startsWith('# ')) {
-                        return <h1 key={index} className="text-2xl font-bold text-gray-800 mt-8 mb-4">{line.substring(2)}</h1>;
-                      } else if (line.startsWith('- **')) {
-                        const match = line.match(/- \*\*(.*?)\*\*: (.*)/);
-                        if (match) {
-                          return <p key={index} className="mb-2"><strong>{match[1]}:</strong> {match[2]}</p>;
-                        }
-                      } else if (line.startsWith('- ')) {
-                        return <p key={index} className="mb-1 ml-4">• {line.substring(2)}</p>;
-                      } else if (line.trim()) {
-                        return <p key={index} className="mb-2 text-gray-700">{line}</p>;
-                      }
-                      return <br key={index} />;
-                    })}
-                  </div>
-                </div>
-              )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Maintainability */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                      <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-2 text-blue-600" />
+                        Maintainability
+                      </h4>
+                      <div className="prose prose-sm max-w-none text-gray-700">
+                        <ReactMarkdown>
+                          {documentAnalysis.maintainability}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
 
-              {/* Sensitivity Analysis */}
-              {testReport?.sensitivity && (
-                <div ref={sensitivityRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
-                  <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
-                    <TestTube className="w-5 h-5 mr-2 text-confluence-blue" />
-                    Sensitivity Analysis
-                  </h3>
-                  <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20 prose prose-sm max-w-none">
-                    <div className="prose prose-sm max-w-none text-gray-800 bg-white/70 backdrop-blur-sm p-4 rounded-lg border border-white/20">
-                    <ReactMarkdown>
-                      {testReport.sensitivity}
-                    </ReactMarkdown>
+                    {/* Usability */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                      <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                        Usability
+                      </h4>
+                      <div className="prose prose-sm max-w-none text-gray-700">
+                        <ReactMarkdown>
+                          {documentAnalysis.usability}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+
+                    {/* Accessibility */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                      <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-2 text-purple-600" />
+                        Accessibility
+                      </h4>
+                      <div className="prose prose-sm max-w-none text-gray-700">
+                        <ReactMarkdown>
+                          {documentAnalysis.accessibility}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+
+                    {/* Consistency */}
+                    <div className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                      <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                        <CheckCircle className="w-4 h-4 mr-2 text-orange-600" />
+                        Consistency
+                      </h4>
+                      <div className="prose prose-sm max-w-none text-gray-700">
+                        <ReactMarkdown>
+                          {documentAnalysis.consistency}
+                        </ReactMarkdown>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1433,11 +1666,21 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
           </div>
 
           {/* Empty State */}
-          {!testReport?.strategy && !testReport?.crossPlatform && !testReport?.sensitivity && (
+          {!testReport?.strategy && !testReport?.crossPlatform && !testReport?.sensitivity && !documentAnalysis && (
             <div className="text-center py-12">
-              <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Generate Test Analysis</h3>
-              <p className="text-gray-500">Select your code and test components, then choose which analysis to generate.</p>
+              {selectionMode === 'component' ? (
+                <>
+                  <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Generate Test Analysis</h3>
+                  <p className="text-gray-500">Select your code and test components, then choose which analysis to generate.</p>
+                </>
+              ) : (
+                <>
+                  <FileCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Analyze Document</h3>
+                  <p className="text-gray-500">Select a document page to analyze its maintainability, usability, accessibility, and consistency.</p>
+                </>
+              )}
             </div>
           )}
         </div>

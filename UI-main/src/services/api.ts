@@ -48,6 +48,18 @@ export interface TestRequest {
   question?: string;
 }
 
+export interface DocumentAnalysisRequest {
+  space_key: string;
+  document_page_title: string;
+}
+
+export interface DocumentAnalysisResponse {
+  maintainability: string;
+  usability: string;
+  accessibility: string;
+  consistency: string;
+}
+
 export interface GitHubActionsRequest {
   space_key: string;
   code_page_title: string;
@@ -338,6 +350,13 @@ class ApiService {
 
   async testSupport(request: TestRequest): Promise<TestResponse> {
     return this.makeRequest<TestResponse>('/test-support', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async analyzeDocument(request: DocumentAnalysisRequest): Promise<DocumentAnalysisResponse> {
+    return this.makeRequest<DocumentAnalysisResponse>('/analyze-document', {
       method: 'POST',
       body: JSON.stringify(request),
     });
