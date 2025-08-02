@@ -399,8 +399,9 @@ def extract_text_from_pdf(pdf_content: bytes) -> str:
         return f"Error reading PDF: {str(e)}"
 
 def extract_text_from_docx(docx_content: bytes) -> str:
-    """Extract text from DOCX content"""
+    """Extract text from DOCX content - ENHANCED VERSION"""
     try:
+        print(f"=== ENHANCED DOCX EXTRACTION STARTED ===")
         print(f"Extracting text from DOCX file, content size: {len(docx_content)} bytes")
         docx_file = io.BytesIO(docx_content)
         doc = Document(docx_file)
@@ -466,6 +467,7 @@ def extract_text_from_docx(docx_content: bytes) -> str:
         if not text.strip():
             return "No readable text content found in the document. The document may be empty, corrupted, or contain only images/formats not supported by text extraction."
         
+        print(f"=== ENHANCED DOCX EXTRACTION COMPLETED ===")
         return text.strip()
     except Exception as e:
         print(f"Error reading DOCX: {str(e)}")
@@ -2077,6 +2079,9 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         if len(clean_text) > 8000:
             clean_text = clean_text[:8000] + "... [Content truncated for analysis]"
         
+        print(f"Final content being sent to AI for analysis: {len(clean_text)} characters")
+        print(f"Content preview: {clean_text[:500]}...")
+        
         # Create analysis prompt
         analysis_prompt = f"""
         Analyze the following document content for four key aspects of documentation quality. 
@@ -2123,8 +2128,11 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         """
         
         # Generate analysis
+        print(f"Sending analysis prompt to AI (length: {len(analysis_prompt)} characters)")
         response = ai_model.generate_content(analysis_prompt)
         analysis_text = response.text.strip()
+        print(f"AI response received: {len(analysis_text)} characters")
+        print(f"AI response preview: {analysis_text[:500]}...")
         
         # Parse the response into sections using markdown headers
         sections = analysis_text.split('## ')
