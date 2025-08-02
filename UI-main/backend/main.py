@@ -1956,11 +1956,19 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         attachments = get_page_attachments(confluence, document_page["id"])
         print(f"Found {len(attachments)} attachments")
         
+        # If no attachments found, try alternative method
+        if not attachments:
+            print("No attachments found with primary method, trying alternative...")
+            attachments = get_page_attachments_alternative(confluence, document_page["id"])
+            print(f"Alternative method found {len(attachments)} attachments")
+        
         # Look for document files in attachments
         document_text = ""
         for attachment in attachments:
-            file_name = attachment.get('title', '').lower()
+            file_name = attachment.get('filename', '').lower()
             file_url = attachment.get('url', '')
+            
+            print(f"Checking attachment: {file_name} with URL: {file_url}")
             
             if any(ext in file_name for ext in ['.docx', '.doc', '.pdf', '.txt']):
                 print(f"Processing document attachment: {file_name}")
@@ -1973,8 +1981,11 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
                     if file_content:
                         document_text += f"\n\n--- Content from {file_name} ---\n{file_content}"
                         print(f"Successfully extracted {len(file_content)} characters from {file_name}")
+                    else:
+                        print(f"No content extracted from {file_name}")
                 except Exception as e:
                     print(f"Error extracting content from {file_name}: {str(e)}")
+                    print(f"Full error details: {traceback.format_exc()}")
         
         # If no document files found in attachments, use page content
         if not document_text.strip():
@@ -3420,6 +3431,60 @@ async def debug_attachments(space_key: str, page_title: str):
         
     except Exception as e:
         return {"error": str(e)}
+
+@app.get("/debug-document-analysis/{space_key}/{page_title}")
+async def debug_document_analysis(space_key: str, page_title: str):
+    """Debug endpoint to test document analysis on a specific page"""
+    try:
+        confluence = init_confluence()
+        space_key = auto_detect_space(confluence, space_key)
+        
+        # Get page
+        pages = confluence.get_all_pages_from_space(space=space_key, start=0, limit=50)
+        page = next((p for p in pages if p["title"] == page_title), None)
+        
+        if not page:
+            return {"error": "Page not found"}
+        
+        # Get page content
+        document_data = confluence.get_page_by_id(page["id"], expand="body.storage")
+        document_content = document_data["body"]["storage"]["value"]
+        
+        # Get attachments
+        attachments = get_page_attachments(confluence, page["id"])
+        if not attachments:
+            attachments = get_page_attachments_alternative(confluence, page["id"])
+        
+        # Try to extract content from first document attachment
+        extracted_content = ""
+        if attachments:
+            for attachment in attachments:
+                file_name = attachment.get('filename', '').lower()
+                file_url = attachment.get('url', '')
+                
+                if any(ext in file_name for ext in ['.docx', '.doc', '.pdf', '.txt']):
+                    try:
+                        file_extension = file_name.split('.')[-1] if '.' in file_name else 'txt'
+                        file_content = extract_text_from_file(file_url, file_extension)
+                        if file_content:
+                            extracted_content = file_content[:500] + "..." if len(file_content) > 500 else file_content
+                            break
+                    except Exception as e:
+                        extracted_content = f"Error extracting: {str(e)}"
+                        break
+        
+        return {
+            "page_id": page["id"],
+            "page_title": page["title"],
+            "page_content_length": len(document_content),
+            "page_content_preview": document_content[:500] + "..." if len(document_content) > 500 else document_content,
+            "attachments": attachments,
+            "attachment_count": len(attachments),
+            "extracted_content_preview": extracted_content,
+            "has_document_files": any(any(ext in att.get('filename', '').lower() for ext in ['.docx', '.doc', '.pdf', '.txt']) for att in attachments)
+        }
+    except Exception as e:
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 def get_actual_api_key_from_identifier(identifier: str) -> str:
     if identifier and identifier.startswith('GENAI_API_KEY_'):

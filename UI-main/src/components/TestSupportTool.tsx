@@ -1217,8 +1217,8 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
 
             {/* Middle Columns - Generated Content */}
             <div className="xl:col-span-2 space-y-6">
-              {/* Analysis Tabs */}
-              {testReport && (testReport.strategy || testReport.crossPlatform || testReport.sensitivity) && (
+              {/* Component Analysis Results - Only show in component mode */}
+              {selectionMode === 'component' && testReport && (testReport.strategy || testReport.crossPlatform || testReport.sensitivity) && (
                 <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   {/* Tab Navigation */}
                   <div className="flex space-x-2 border-b border-white/20 mb-4">
@@ -1342,8 +1342,8 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
                 </div>
               )}
 
-              {/* Document Analysis Results */}
-              {documentAnalysis && (
+              {/* Document Analysis Results - Only show in document mode */}
+              {selectionMode === 'document' && documentAnalysis && (
                 <div ref={documentAnalysisRef} className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg">
                   <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                     <FileCheck className="w-5 h-5 mr-2 text-green-600" />
@@ -1680,21 +1680,19 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
           </div>
 
           {/* Empty State */}
-          {!testReport?.strategy && !testReport?.crossPlatform && !testReport?.sensitivity && !documentAnalysis && (
+          {selectionMode === 'component' && !testReport?.strategy && !testReport?.crossPlatform && !testReport?.sensitivity && (
             <div className="text-center py-12">
-              {selectionMode === 'component' ? (
-                <>
-                  <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Generate Test Analysis</h3>
-                  <p className="text-gray-500">Select your code and test components, then choose which analysis to generate.</p>
-                </>
-              ) : (
-                <>
-                  <FileCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Analyze Document</h3>
-                  <p className="text-gray-500">Select a document page to analyze its maintainability, usability, accessibility, and consistency.</p>
-                </>
-              )}
+              <TestTube className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Generate Test Analysis</h3>
+              <p className="text-gray-500">Select your code and test components, then choose which analysis to generate.</p>
+            </div>
+          )}
+          
+          {selectionMode === 'document' && !documentAnalysis && (
+            <div className="text-center py-12">
+              <FileCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">Ready to Analyze Document</h3>
+              <p className="text-gray-500">Select a document page to analyze its maintainability, usability, accessibility, and consistency.</p>
             </div>
           )}
         </div>
