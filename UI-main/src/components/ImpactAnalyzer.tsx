@@ -698,7 +698,7 @@ ${qaResults.map(qa => `**Q:** ${qa.question}\n**A:** ${qa.answer}`).join('\n\n')
               {/* Code Diff */}
               {diffResults && (
                 <div className="bg-white/60 backdrop-blur-xl rounded-xl p-4 border border-white/20 shadow-lg" ref={diffResultsRef}>
-                  <h3 className="font-semibold text-gray-800 mb-4">Code Diff</h3>
+                  <h3 className="font-semibold text-gray-800 mb-4">Differences</h3>
                   <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-4 overflow-auto max-h-80 border border-white/10">
                     <pre className="text-sm">
                       <code>
