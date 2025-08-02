@@ -405,19 +405,71 @@ def extract_text_from_docx(docx_content: bytes) -> str:
         docx_file = io.BytesIO(docx_content)
         doc = Document(docx_file)
         
+        # Try multiple extraction methods
         text = ""
         paragraph_count = 0
-        for paragraph in doc.paragraphs:
-            if paragraph.text.strip():  # Only add non-empty paragraphs
-                text += paragraph.text + "\n"
-                paragraph_count += 1
         
-        print(f"Extracted {len(text)} characters from {paragraph_count} paragraphs")
+        # Method 1: Extract from paragraphs
+        print(f"Total paragraphs in document: {len(doc.paragraphs)}")
+        for i, paragraph in enumerate(doc.paragraphs):
+            para_text = paragraph.text.strip()
+            if para_text:
+                text += para_text + "\n"
+                paragraph_count += 1
+                print(f"Paragraph {i}: '{para_text[:50]}...'")
+        
+        # Method 2: Extract from tables if paragraphs are empty
+        if not text.strip():
+            print("No text in paragraphs, trying tables...")
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        cell_text = cell.text.strip()
+                        if cell_text:
+                            text += cell_text + "\n"
+                            print(f"Table cell: '{cell_text[:50]}...'")
+        
+        # Method 3: Extract from headers/footers
+        if not text.strip():
+            print("No text in tables, trying headers/footers...")
+            for section in doc.sections:
+                if section.header:
+                    header_text = section.header.text.strip()
+                    if header_text:
+                        text += header_text + "\n"
+                        print(f"Header: '{header_text[:50]}...'")
+                if section.footer:
+                    footer_text = section.footer.text.strip()
+                    if footer_text:
+                        text += footer_text + "\n"
+                        print(f"Footer: '{footer_text[:50]}...'")
+        
+        # Method 4: Try to extract raw XML content if all else fails
+        if not text.strip():
+            print("No text found in standard methods, trying raw XML extraction...")
+            try:
+                # Get the document's XML content
+                xml_content = doc._element.xml
+                # Extract text from XML (basic approach)
+                import re
+                text_tags = re.findall(r'<w:t[^>]*>(.*?)</w:t>', xml_content, re.DOTALL)
+                for tag_content in text_tags:
+                    if tag_content.strip():
+                        text += tag_content.strip() + " "
+                print(f"Extracted {len(text)} characters from XML")
+            except Exception as xml_error:
+                print(f"XML extraction failed: {xml_error}")
+        
+        print(f"Final extraction: {len(text)} characters from {paragraph_count} paragraphs")
         print(f"First 200 characters: {text[:200]}")
+        
+        if not text.strip():
+            return "No readable text content found in the document. The document may be empty, corrupted, or contain only images/formats not supported by text extraction."
         
         return text.strip()
     except Exception as e:
         print(f"Error reading DOCX: {str(e)}")
+        print(f"Full error details: {traceback.format_exc()}")
         return f"Error reading DOCX: {str(e)}"
 
 def extract_text_from_txt(txt_content: bytes) -> str:
@@ -2011,6 +2063,15 @@ async def analyze_document(request: DocumentAnalysisRequest, req: Request):
         else:
             # Use extracted document content
             clean_text = document_text
+            
+        # If document extraction failed or returned very little content, fall back to page content
+        if len(clean_text.strip()) < 100:  # Less than 100 characters
+            print(f"Document extraction returned only {len(clean_text.strip())} characters, falling back to page content")
+            soup = BeautifulSoup(document_content, 'html.parser')
+            page_text = soup.get_text()
+            if len(page_text.strip()) > len(clean_text.strip()):
+                clean_text = page_text
+                print(f"Using page content instead: {len(clean_text.strip())} characters")
         
         # Truncate content if too long
         if len(clean_text) > 8000:
