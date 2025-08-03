@@ -2,7 +2,7 @@
 
 A powerful AI-powered assistant that integrates with Confluence to provide intelligent search, analysis, and automation capabilities. This application helps teams extract insights from their Confluence documentation, analyze code changes, generate test strategies, and automate various documentation tasks.
 
-## 🎯 Use Case: Business Analyst & Solution Designer Workflow
+## 🎯 Use Case: Integrating ChatGPT with Confluence
 
 In day-to-day work, Business Analysts and Solution Designers face significant challenges in documentation and information management:
 
