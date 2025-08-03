@@ -395,10 +395,12 @@ class ApiService {
   }
 
   async exportContent(request: ExportRequest): Promise<Blob> {
+    const apiKey = this.getSelectedApiKey();
     const response = await fetch(`${API_BASE_URL}/export`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-api-key': apiKey || '',
       },
       body: JSON.stringify(request),
     });
@@ -411,7 +413,7 @@ class ApiService {
     const result = await response.json();
     
     // Handle binary files (PDF, DOCX) that are base64 encoded
-    if (request.format === 'pdf' || request.format === 'docx') {
+    if (request.format === 'pdf' || request.format === 'docx' || request.format === 'pptx') {
       const binaryString = atob(result.file);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {

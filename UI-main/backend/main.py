@@ -218,13 +218,68 @@ def init_confluence():
 
 # Export functions
 def create_pdf(text):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    pdf.set_font("Arial", size=12)
-    for line in text.split('\n'):
-        pdf.multi_cell(0, 10, line)
-    return io.BytesIO(pdf.output(dest='S').encode('latin1'))
+    try:
+        # Validate input
+        if not text or not text.strip():
+            text = "No content to export"
+        
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.set_font("Arial", size=12)
+        
+        # Clean and encode text properly
+        cleaned_text = remove_emojis(text)
+        
+        # Split text into lines and add to PDF
+        lines = cleaned_text.split('\n')
+        for line in lines:
+            # Handle empty lines
+            if not line.strip():
+                pdf.ln(5)
+            else:
+                # Encode line to handle special characters
+                try:
+                    # First try with latin-1 encoding
+                    encoded_line = line.encode('latin-1', 'replace').decode('latin-1')
+                    if encoded_line.strip():  # Only add non-empty lines
+                        pdf.multi_cell(0, 10, encoded_line)
+                except UnicodeEncodeError:
+                    # Fallback for problematic characters
+                    try:
+                        safe_line = line.encode('ascii', 'ignore').decode('ascii')
+                        if safe_line.strip():  # Only add non-empty lines
+                            pdf.multi_cell(0, 10, safe_line)
+                    except Exception:
+                        # Final fallback - skip problematic lines
+                        continue
+        
+        # Get PDF as bytes
+        pdf_bytes = pdf.output(dest='S')
+        if not pdf_bytes:
+            raise Exception("PDF generation returned empty data")
+        
+        return io.BytesIO(pdf_bytes.encode('latin-1'))
+    except Exception as e:
+        print(f"PDF creation error: {e}")
+        # Fallback: create a simple text-based PDF
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            pdf.cell(0, 10, "PDF Export Error", ln=True)
+            pdf.cell(0, 10, f"Error: {str(e)}", ln=True)
+            pdf.cell(0, 10, "Content could not be exported properly.", ln=True)
+            pdf.cell(0, 10, "Please try a different export format.", ln=True)
+            return io.BytesIO(pdf.output(dest='S').encode('latin-1'))
+        except Exception as fallback_error:
+            print(f"Fallback PDF creation also failed: {fallback_error}")
+            # Return a minimal PDF with just an error message
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=12)
+            pdf.cell(0, 10, "PDF Export Failed", ln=True)
+            return io.BytesIO(pdf.output(dest='S').encode('latin-1'))
 
 def create_docx(text):
     doc = Document()
@@ -3213,39 +3268,110 @@ async def create_chart(request: ChartRequest, req: Request):
 async def export_content(request: ExportRequest, req: Request):
     """Export content in various formats"""
     try:
-        api_key = get_actual_api_key_from_identifier(req.headers.get('x-api-key'))
-        genai.configure(api_key=api_key)
-        ai_model = genai.GenerativeModel("models/gemini-1.5-flash-8b-latest")
-        if request.format == "pdf":
-            buffer = create_pdf(request.content)
+        # Validate input
+        if not request.content or not request.content.strip():
+            raise HTTPException(status_code=400, detail="Content cannot be empty")
+        
+        if not request.format:
+            raise HTTPException(status_code=400, detail="Format must be specified")
+        
+        if not request.filename:
+            request.filename = "export"
+        
+        # Clean content
+        content = request.content.strip()
+        
+        if request.format.lower() == "pdf":
+            try:
+                print(f"Creating PDF for content length: {len(content)}")
+                buffer = create_pdf(content)
+                file_data = buffer.getvalue()
+                print(f"PDF generated, size: {len(file_data)} bytes")
+                if not file_data:
+                    raise Exception("PDF generation returned empty data")
+                encoded_data = base64.b64encode(file_data).decode('utf-8')
+                print(f"PDF base64 encoded, length: {len(encoded_data)}")
+                return {
+                    "file": encoded_data, 
+                    "mime": "application/pdf", 
+                    "filename": f"{request.filename}.pdf"
+                }
+            except Exception as pdf_error:
+                print(f"PDF export error: {pdf_error}")
+                print(f"Error type: {type(pdf_error)}")
+                import traceback
+                print(f"Traceback: {traceback.format_exc()}")
+                # Create a fallback PDF with error message
+                try:
+                    fallback_content = f"PDF Export Error\n\nOriginal content could not be exported.\nError: {str(pdf_error)}\n\nContent preview:\n{content[:500]}..."
+                    buffer = create_pdf(fallback_content)
+                    file_data = buffer.getvalue()
+                    return {
+                        "file": base64.b64encode(file_data).decode('utf-8'), 
+                        "mime": "application/pdf", 
+                        "filename": f"{request.filename}.pdf"
+                    }
+                except Exception as fallback_error:
+                    print(f"Fallback PDF also failed: {fallback_error}")
+                    # Return a simple text response instead
+                    return {
+                        "file": base64.b64encode(f"PDF Export Failed: {str(pdf_error)}".encode('utf-8')).decode('utf-8'),
+                        "mime": "text/plain",
+                        "filename": f"{request.filename}.txt"
+                    }
+        elif request.format.lower() == "docx":
+            buffer = create_docx(content)
             file_data = buffer.getvalue()
-            return {"file": base64.b64encode(file_data).decode('utf-8'), "mime": "application/pdf", "filename": f"{request.filename}.pdf"}
-        elif request.format == "docx":
-            buffer = create_docx(request.content)
+            return {
+                "file": base64.b64encode(file_data).decode('utf-8'), 
+                "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", 
+                "filename": f"{request.filename}.docx"
+            }
+        elif request.format.lower() == "pptx":
+            buffer = create_pptx(content)
             file_data = buffer.getvalue()
-            return {"file": base64.b64encode(file_data).decode('utf-8'), "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "filename": f"{request.filename}.docx"}
-        elif request.format == "pptx":
-            buffer = create_pptx(request.content)
+            return {
+                "file": base64.b64encode(file_data).decode('utf-8'), 
+                "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation", 
+                "filename": f"{request.filename}.pptx"
+            }
+        elif request.format.lower() == "csv":
+            buffer = create_csv(content)
             file_data = buffer.getvalue()
-            return {"file": base64.b64encode(file_data).decode('utf-8'), "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation", "filename": f"{request.filename}.pptx"}
-        elif request.format == "csv":
-            buffer = create_csv(request.content)
+            return {
+                "file": file_data.decode('utf-8'), 
+                "mime": "text/csv", 
+                "filename": f"{request.filename}.csv"
+            }
+        elif request.format.lower() == "json":
+            buffer = create_json(content)
             file_data = buffer.getvalue()
-            return {"file": file_data.decode('utf-8'), "mime": "text/csv", "filename": f"{request.filename}.csv"}
-        elif request.format == "json":
-            buffer = create_json(request.content)
+            return {
+                "file": file_data.decode('utf-8'), 
+                "mime": "application/json", 
+                "filename": f"{request.filename}.json"
+            }
+        elif request.format.lower() == "html":
+            buffer = create_html(content)
             file_data = buffer.getvalue()
-            return {"file": file_data.decode('utf-8'), "mime": "application/json", "filename": f"{request.filename}.json"}
-        elif request.format == "html":
-            buffer = create_html(request.content)
-            file_data = buffer.getvalue()
-            return {"file": file_data.decode('utf-8'), "mime": "text/html", "filename": f"{request.filename}.html"}
+            return {
+                "file": file_data.decode('utf-8'), 
+                "mime": "text/html", 
+                "filename": f"{request.filename}.html"
+            }
         else:  # txt/markdown
-            buffer = create_txt(request.content)
+            buffer = create_txt(content)
             file_data = buffer.getvalue()
-            return {"file": file_data.decode('utf-8'), "mime": "text/plain", "filename": f"{request.filename}.txt"}
+            return {
+                "file": file_data.decode('utf-8'), 
+                "mime": "text/plain", 
+                "filename": f"{request.filename}.txt"
+            }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Export error: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 @app.post("/save-to-confluence")
 async def save_to_confluence(request: SaveToConfluenceRequest, req: Request):
@@ -3489,6 +3615,8 @@ async def send_to_google_chat_endpoint(payload: dict = Body(...)):
 async def test_endpoint():
     """Test endpoint to verify backend is working"""
     return {"message": "Backend is working", "status": "ok"}
+
+
 
 @app.get("/debug-attachments/{space_key}/{page_title}")
 async def debug_attachments(space_key: str, page_title: str):
