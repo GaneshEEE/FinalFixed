@@ -250,6 +250,23 @@ The application will be available at:
 - **Consistency Check**: Verify consistent structure, terminology, and formatting
 - **Actionable Recommendations**: Get specific, implementable improvement suggestions
 
+#### Chart Builder
+- **AI-Powered Visualization**: Create visual charts from data tables and Excel files using AI
+- **Multiple Chart Types**: Generate bar charts, line charts, pie charts, and scatter plots
+- **Data Analysis**: AI automatically analyzes data patterns and suggests appropriate chart types
+- **Export Capabilities**: Download charts in various formats (PNG, PDF, SVG)
+- **Confluence Integration**: Save charts directly to Confluence pages
+- **Real-time Generation**: Instant chart creation from uploaded data files
+
+#### Agent Mode
+- **Agentic AI Implementation**: Goal-based analysis across multiple Confluence spaces
+- **Intelligent Tool Selection**: AI automatically selects the most appropriate tools for your goal
+- **Multi-Space Analysis**: Analyze content across different Confluence spaces simultaneously
+- **Reasoning Engine**: AI provides step-by-step reasoning for its analysis approach
+- **Comprehensive Planning**: Creates detailed execution plans before performing analysis
+- **Cross-Tool Integration**: Combines multiple AI tools for comprehensive insights
+- **Goal-Oriented Results**: Focuses analysis on achieving specific business objectives
+
 ## API Endpoints
 
 ### Core Endpoints
