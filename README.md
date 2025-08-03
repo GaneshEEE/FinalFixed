@@ -2,26 +2,7 @@
 
 A powerful AI-powered assistant that integrates with Confluence to provide intelligent search, analysis, and automation capabilities. This application helps teams extract insights from their Confluence documentation, analyze code changes, generate test strategies, and automate various documentation tasks.
 
-## 🎯 Use Case: Integrating ChatGPT with Confluence
-
-In day-to-day work, Business Analysts and Solution Designers face significant challenges in documentation and information management:
-
-### Current Pain Points
-
-- **🔍 Search Results**: Searching multiple sources to understand relevant details about journey and product-related information
-- **🔗 Dependencies**: Business Analysts/Designers are solely dependent on component designers for sample/handcrafted XML/JSON or request-related changes from upstream to downstream applications
-- **📝 Meeting Overview**: Meeting synopsis or sending minutes of calls is a key responsibility to capture changes discussed and new requirements introduced
-- **📋 Detailed Documentation**: Identifying non-functional and testing strategy impact is critical. If not identified during design, it might lead to functionality breaks or design delays
-
-### How Confluence AI Assistant Solves These Challenges
-
-- **🔍 AI-Powered Search**: Instantly search across all Confluence documentation with context-aware responses, eliminating the need to manually search multiple sources
-- **📊 Impact Analyzer**: Automatically assess the impact of changes across upstream and downstream applications, reducing dependency on component designers
-- **🎥 Video Summarizer**: Automatically transcribe and summarize meeting recordings, extract key points, and generate meeting minutes
-- **🧪 Test Support Tool**: Identify non-functional requirements and generate comprehensive testing strategies to prevent functionality breaks
-- **📈 Document Analysis**: Evaluate documentation quality and ensure all requirements are properly captured and documented
-
-## 🚀 Features
+## Features
 
 ### Core AI Features
 - **AI-Powered Search**: Hybrid RAG (Retrieval-Augmented Generation) with Google Search integration and Google Chat notifications
@@ -42,7 +23,7 @@ In day-to-day work, Business Analysts and Solution Designers face significant ch
 - **Voice Recording**: Voice-to-text input for questions and queries
 - **Agent Mode**: Agentic AI implementation for goal-based analysis across multiple Confluence spaces with intelligent tool selection and reasoning
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend
 - **FastAPI**: Modern Python web framework for building APIs with automatic OpenAPI documentation
@@ -72,7 +53,7 @@ In day-to-day work, Business Analysts and Solution Designers face significant ch
 - **Render**: Cloud hosting platform
 - **Environment Variables**: Secure configuration management
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before running this application, ensure you have:
 
@@ -89,7 +70,7 @@ Before running this application, ensure you have:
   - Google Search API (optional, for enhanced search capabilities)
   - Stack Overflow API (optional, for technical risk assessment)
 
-## 🔧 Installation
+## Installation
 
 ### 1. Clone the Repository
 
@@ -164,7 +145,7 @@ SLACK_TOKEN=your-slack-bot-token
 GOOGLE_CHAT_WEBHOOK_URL=your-google-chat-webhook-url
 ```
 
-## 🚀 Running the Application
+## Running the Application
 
 ### Development Mode
 
@@ -201,7 +182,7 @@ The application will be available at:
    - Set the publish directory: `dist`
    - Configure environment variables for API endpoints
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### Getting Started
 
@@ -258,7 +239,7 @@ The application will be available at:
 - **Consistency Check**: Verify consistent structure, terminology, and formatting
 - **Actionable Recommendations**: Get specific, implementable improvement suggestions
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Core Endpoints
 - `GET /spaces` - Get available Confluence spaces
@@ -281,7 +262,7 @@ The application will be available at:
 - `POST /image-summary` - Analyze images with AI
 - `POST /send-to-google-chat` - Send notifications to Google Chat
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 confluence-ai-assistant/
@@ -309,7 +290,7 @@ confluence-ai-assistant/
 └── .gitignore                   # Git ignore rules
 ```
 
-## 🔒 Security Considerations
+## Security Considerations
 
 - **API Keys**: Never commit API keys to version control
 - **Environment Variables**: Use environment variables for all sensitive configuration
@@ -317,20 +298,11 @@ confluence-ai-assistant/
 - **Rate Limiting**: Implement rate limiting for production deployments
 - **Input Validation**: All user inputs are validated and sanitized
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
-
-- **Google Gemini AI** for providing the AI capabilities
-- **Atlassian** for the Confluence API
-- **AssemblyAI** for video transcription services
-- **FastAPI** for the excellent web framework
-- **React** and **Vite** for the frontend tooling
-
-
-## 🔄 Version History
+## Version History
 
 - **v1.0.0** - Initial release with core AI features
 - **v1.1.0** - Added video summarizer and chart generation
