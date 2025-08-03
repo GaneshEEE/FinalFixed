@@ -11,6 +11,7 @@ A powerful AI-powered assistant that integrates with Confluence to provide intel
 - **Impact Analyzer**: Assess the impact of code changes with risk analysis, recommendations, and Stack Overflow integration
 - **Document Analysis**: Evaluate documentation quality across maintainability, usability, accessibility, and consistency
 - **Test Support Tool**: Generate comprehensive test strategies and cross-platform testing plans with GitHub Actions integration
+- **Auto High Level Solution Design (HLSD)**: Automatically generate comprehensive solution design documents from code files with architecture analysis
 
 ### Export & Integration Features
 - **Multi-Format Export**: Export content to PDF, DOCX, PPTX, CSV, JSON, HTML, and TXT formats
@@ -194,6 +195,16 @@ The application will be available at:
 
 
 ### Available Tools
+
+#### Auto High Level Solution Design (HLSD)
+- **Automatic Deployment Integration**: Produces clear, structured HLSD documents every time the backend code is deployed
+- **Architecture Analysis**: Automatically analyze Python code files for architecture patterns using Gemini AI
+- **Comprehensive Documentation**: Generate detailed solution design documents covering all aspects of the system
+- **Component Identification**: Identify main components, API endpoints, and integration points
+- **Integration Flow Mapping**: Map and document data flows between different system components
+- **Confluence Integration**: Save generated HLSD documents directly to Confluence pages
+- **Zero Manual Effort**: Completely automated process requiring no manual intervention
+- **Real-time Updates**: HLSD documentation stays current with every code deployment
 
 #### AI-Powered Search
 - **Hybrid RAG Implementation**: Combines Confluence content with real-time web search results
