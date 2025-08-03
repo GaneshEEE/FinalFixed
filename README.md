@@ -45,14 +45,21 @@ In day-to-day work, Business Analysts and Solution Designers face significant ch
 ## 🛠️ Technology Stack
 
 ### Backend
-- **FastAPI**: Modern Python web framework for building APIs
-- **Google Gemini AI**: Advanced AI model for natural language processing
-- **Atlassian Python API**: Confluence integration
-- **FPDF2**: PDF generation
-- **python-docx**: Word document generation
-- **python-pptx**: PowerPoint presentation generation
-- **AssemblyAI**: Video transcription and analysis
-- **Matplotlib/Seaborn**: Chart generation
+- **FastAPI**: Modern Python web framework for building APIs with automatic OpenAPI documentation
+- **Google Gemini AI**: Advanced AI model for natural language processing and content generation
+- **Atlassian Python API**: Confluence integration for page management and content retrieval
+- **FPDF2**: PDF generation with support for text, tables, and formatting
+- **python-docx**: Word document generation with rich formatting capabilities
+- **python-pptx**: PowerPoint presentation generation for reports and summaries
+- **AssemblyAI**: Video transcription and analysis with speaker detection
+- **Matplotlib/Seaborn**: Chart generation and data visualization
+- **Pydantic**: Data validation and serialization for API requests/responses
+- **Uvicorn**: ASGI server for running FastAPI applications
+- **Requests**: HTTP library for external API integrations
+- **BeautifulSoup4**: HTML parsing for web content extraction
+- **Pillow**: Image processing for chart and image analysis
+- **OpenPyXL**: Excel file processing for data import/export
+- **python-multipart**: File upload handling for video and document processing
 
 ### Frontend
 - **React 18**: Modern React with TypeScript
@@ -310,54 +317,6 @@ confluence-ai-assistant/
 - **Rate Limiting**: Implement rate limiting for production deployments
 - **Input Validation**: All user inputs are validated and sanitized
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-
-- Follow the existing code style and conventions
-- Add appropriate error handling and logging
-- Write tests for new features
-- Update documentation for any API changes
-- Ensure all environment variables are documented
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-1. **PDF Export Not Working**
-   - Ensure FPDF2 is properly installed
-   - Check that the content doesn't contain unsupported characters
-   - Verify the export endpoint is receiving valid requests
-
-2. **Confluence Connection Issues**
-   - Verify your Confluence API credentials
-   - Check that your Confluence instance is accessible
-   - Ensure you have the necessary permissions
-
-3. **AI Model Errors**
-   - Verify your Gemini API keys are valid
-   - Check your API quota and limits
-   - Ensure the API keys have the necessary permissions
-
-4. **Frontend Build Issues**
-   - Clear node_modules and reinstall dependencies
-   - Check for TypeScript compilation errors
-   - Verify all required environment variables are set
-
-### Debug Endpoints
-
-The application includes several debug endpoints for troubleshooting:
-
-- `GET /test` - Basic API health check
-- `GET /debug-attachments/{space_key}/{page_title}` - Debug attachment retrieval
-- `GET /debug-document-analysis/{space_key}/{page_title}` - Debug document analysis
-
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -370,13 +329,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **FastAPI** for the excellent web framework
 - **React** and **Vite** for the frontend tooling
 
-## 📞 Support
-
-For support and questions:
-
-- Create an issue in the GitHub repository
-- Check the troubleshooting section above
-- Review the API documentation in the code comments
 
 ## 🔄 Version History
 
