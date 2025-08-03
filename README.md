@@ -2,15 +2,34 @@
 
 A powerful AI-powered assistant that integrates with Confluence to provide intelligent search, analysis, and automation capabilities. This application helps teams extract insights from their Confluence documentation, analyze code changes, generate test strategies, and automate various documentation tasks.
 
+## 🎯 Use Case: Business Analyst & Solution Designer Workflow
+
+In day-to-day work, Business Analysts and Solution Designers face significant challenges in documentation and information management:
+
+### Current Pain Points
+
+- **🔍 Search Results**: Searching multiple sources to understand relevant details about journey and product-related information
+- **🔗 Dependencies**: Business Analysts/Designers are solely dependent on component designers for sample/handcrafted XML/JSON or request-related changes from upstream to downstream applications
+- **📝 Meeting Overview**: Meeting synopsis or sending minutes of calls is a key responsibility to capture changes discussed and new requirements introduced
+- **📋 Detailed Documentation**: Identifying non-functional and testing strategy impact is critical. If not identified during design, it might lead to functionality breaks or design delays
+
+### How Confluence AI Assistant Solves These Challenges
+
+- **🔍 AI-Powered Search**: Instantly search across all Confluence documentation with context-aware responses, eliminating the need to manually search multiple sources
+- **📊 Impact Analyzer**: Automatically assess the impact of changes across upstream and downstream applications, reducing dependency on component designers
+- **🎥 Video Summarizer**: Automatically transcribe and summarize meeting recordings, extract key points, and generate meeting minutes
+- **🧪 Test Support Tool**: Identify non-functional requirements and generate comprehensive testing strategies to prevent functionality breaks
+- **📈 Document Analysis**: Evaluate documentation quality and ensure all requirements are properly captured and documented
+
 ## 🚀 Features
 
 ### Core AI Features
-- **AI-Powered Search**: Intelligent search across Confluence pages with context-aware responses
-- **Video Summarizer**: Extract insights from video content using AssemblyAI transcription
+- **AI-Powered Search**: Hybrid RAG (Retrieval-Augmented Generation) with Google Search integration and Google Chat notifications
+- **Video Summarizer**: Extract insights from video content using AssemblyAI transcription with Slack/Jira task integration
 - **Code Assistant**: Analyze, modify, and convert code between different programming languages
-- **Impact Analyzer**: Assess the impact of code changes with risk analysis and recommendations
+- **Impact Analyzer**: Assess the impact of code changes with risk analysis, recommendations, and Stack Overflow integration
 - **Document Analysis**: Evaluate documentation quality across maintainability, usability, accessibility, and consistency
-- **Test Support Tool**: Generate comprehensive test strategies and cross-platform testing plans
+- **Test Support Tool**: Generate comprehensive test strategies and cross-platform testing plans with GitHub Actions integration
 
 ### Export & Integration Features
 - **Multi-Format Export**: Export content to PDF, DOCX, PPTX, CSV, JSON, HTML, and TXT formats
@@ -19,10 +38,9 @@ A powerful AI-powered assistant that integrates with Confluence to provide intel
 - **Jira & Slack Integration**: Push tasks and notifications to Jira and Slack
 
 ### Advanced Features
-- **Image Insights**: Analyze images and extract insights using AI
-- **Chart Generation**: Create visual charts from data tables and Excel files
+- **Chart Builder**: Create visual charts from data tables and Excel files using AI
 - **Voice Recording**: Voice-to-text input for questions and queries
-- **Agent Mode**: Goal-based analysis across multiple Confluence spaces
+- **Agent Mode**: Agentic AI implementation for goal-based analysis across multiple Confluence spaces with intelligent tool selection and reasoning
 
 ## 🛠️ Technology Stack
 
@@ -55,12 +73,14 @@ Before running this application, ensure you have:
 - **Node.js 16+** installed
 - **Git** for version control
 - Access to the following services:
-  - Confluence instance
-  - Google Gemini AI API
-  - AssemblyAI API (for video features)
-  - GitHub (for GitHub Actions integration)
-  - Jira (optional, for task integration)
-  - Slack (optional, for notifications)
+  - Confluence instance (for documentation storage and retrieval)
+  - Google Gemini AI API (for AI-powered analysis and insights)
+  - AssemblyAI API (for meeting transcription and video analysis)
+  - GitHub (for GitHub Actions integration and CI/CD workflows)
+  - Jira (optional, for task management and requirement tracking)
+  - Slack (optional, for team notifications and collaboration)
+  - Google Search API (optional, for enhanced search capabilities)
+  - Stack Overflow API (optional, for technical risk assessment)
 
 ## 🔧 Installation
 
@@ -118,20 +138,23 @@ GENAI_API_KEY_2=your-gemini-api-key-2
 # AssemblyAI (for video features)
 ASSEMBLYAI_API_KEY=your-assemblyai-api-key
 
-# Optional: Google Search API
+# Optional: Google Search API (for Hybrid RAG)
 GOOGLE_API_KEY=your-google-api-key
 SEARCH_ENGINE_ID=your-search-engine-id
 
-# Optional: Stack Overflow API
+# Optional: Stack Overflow API (for Impact Analyzer)
 STACK_OVERFLOW_API_KEY=your-stack-overflow-api-key
 
-# Optional: Jira Integration
+# Optional: Jira Integration (for Video Summarizer and Task Management)
 JIRA_BASE_URL=https://your-domain.atlassian.net
 JIRA_EMAIL=your-email@domain.com
 JIRA_API_TOKEN=your-jira-api-token
 
-# Optional: Slack Integration
+# Optional: Slack Integration (for Video Summarizer and Notifications)
 SLACK_TOKEN=your-slack-bot-token
+
+# Optional: Google Chat Integration (for AI-Powered Search)
+GOOGLE_CHAT_WEBHOOK_URL=your-google-chat-webhook-url
 ```
 
 ## 🚀 Running the Application
@@ -181,18 +204,23 @@ The application will be available at:
 4. **Analyze Content**: Use the tools to extract insights, analyze code, or generate reports
 5. **Export Results**: Download results in your preferred format (PDF, DOCX, etc.)
 
+
 ### Available Tools
 
 #### AI-Powered Search
-- Search across multiple Confluence pages
-- Get context-aware responses based on your documentation
-- Ask follow-up questions for deeper insights
+- **Hybrid RAG Implementation**: Combines Confluence content with real-time web search results
+- **Google Search Integration**: Enhances responses with current web information
+- **Google Chat Notifications**: Send search results and insights directly to Google Chat
+- **Context-Aware Responses**: Get intelligent answers based on your documentation and web data
+- **Follow-up Questions**: Ask deeper questions for enhanced insights
 
 #### Video Summarizer
-- Upload video files to Confluence pages
-- Get automatic transcription and summarization
-- Extract key quotes and timestamps
-- Ask specific questions about video content
+- **AssemblyAI Transcription**: High-accuracy video-to-text conversion
+- **Automatic Summarization**: AI-generated summaries with key insights
+- **Quote Extraction**: Identify and extract important quotes from video content
+- **Timestamp Generation**: Create clickable timestamps for key moments
+- **Slack/Jira Integration**: Automatically create tasks in Jira and send notifications to Slack
+- **Q&A Capability**: Ask specific questions about video content
 
 #### Code Assistant
 - Analyze code from Confluence pages
@@ -201,21 +229,27 @@ The application will be available at:
 - Generate code summaries and explanations
 
 #### Impact Analyzer
-- Compare different versions of code or documentation
-- Get detailed impact analysis with risk assessment
-- Receive recommendations for improvements
-- Check for potential issues using Stack Overflow data
+- **Code Comparison**: Compare different versions of code or documentation
+- **Risk Assessment**: Detailed impact analysis with risk scoring and categorization
+- **Stack Overflow Integration**: Check for potential issues and best practices using real Stack Overflow data
+- **Recommendations Engine**: Receive AI-powered recommendations for improvements
+- **Risk Factor Analysis**: Identify specific risk factors with severity levels
 
 #### Test Support Tool
-- Generate comprehensive test strategies
-- Create cross-platform testing plans
-- Analyze test data sensitivity
-- Generate GitHub Actions workflows
+- **Comprehensive Test Strategies**: Generate detailed testing approaches for different scenarios
+- **Cross-Platform Testing Plans**: Create platform-specific testing strategies
+- **Data Sensitivity Analysis**: Analyze test data for privacy and security considerations
+- **GitHub Actions Integration**: Automatically generate CI/CD workflows and test configurations
+- **Language Detection**: Automatically detect programming languages and frameworks
+- **Test Framework Recommendations**: Suggest appropriate testing tools and frameworks
 
 #### Document Analysis
-- Evaluate documentation quality
-- Assess maintainability, usability, accessibility, and consistency
-- Get actionable recommendations for improvement
+- **Quality Assessment**: Evaluate documentation across four key dimensions
+- **Maintainability Analysis**: Assess how easy it is to update and maintain documentation
+- **Usability Evaluation**: Check how user-friendly and understandable the content is
+- **Accessibility Review**: Ensure documentation meets accessibility standards
+- **Consistency Check**: Verify consistent structure, terminology, and formatting
+- **Actionable Recommendations**: Get specific, implementable improvement suggestions
 
 ## 🔌 API Endpoints
 
@@ -238,6 +272,7 @@ The application will be available at:
 - `POST /push-to-jira-confluence-slack` - Push tasks to Jira and Slack
 - `POST /create-chart` - Generate charts from data
 - `POST /image-summary` - Analyze images with AI
+- `POST /send-to-google-chat` - Send notifications to Google Chat
 
 ## 🏗️ Project Structure
 
