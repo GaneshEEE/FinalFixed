@@ -302,13 +302,6 @@ confluence-ai-assistant/
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Version History
-
-- **v1.0.0** - Initial release with core AI features
-- **v1.1.0** - Added video summarizer and chart generation
-- **v1.2.0** - Enhanced export functionality and GitHub Actions integration
-- **v1.3.0** - Added document analysis and improved error handling
-
 ---
 
 **Note**: This application requires valid API keys and access to the respective services. Make sure to review the pricing and usage limits for each service before deploying to production.
