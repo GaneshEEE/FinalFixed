@@ -5,13 +5,13 @@ A powerful AI-powered assistant that integrates with Confluence to provide intel
 ## Features
 
 ### Core AI Features
+- **Auto High Level Solution Design (HLSD)**: Automatically generate comprehensive solution design documents from code files with architecture analysis
 - **AI-Powered Search**: Hybrid RAG (Retrieval-Augmented Generation) with Google Search integration and Google Chat notifications
 - **Video Summarizer**: Extract insights from video content using AssemblyAI transcription with Slack/Jira task integration
 - **Code Assistant**: Analyze, modify, and convert code between different programming languages
 - **Impact Analyzer**: Assess the impact of code changes with risk analysis, recommendations, and Stack Overflow integration
 - **Document Analysis**: Evaluate documentation quality across maintainability, usability, accessibility, and consistency
 - **Test Support Tool**: Generate comprehensive test strategies and cross-platform testing plans with GitHub Actions integration
-- **Auto High Level Solution Design (HLSD)**: Automatically generate comprehensive solution design documents from code files with architecture analysis
 
 ### Export & Integration Features
 - **Multi-Format Export**: Export content to PDF, DOCX, PPTX, CSV, JSON, HTML, and TXT formats
