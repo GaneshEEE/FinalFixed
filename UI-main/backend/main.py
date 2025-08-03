@@ -254,12 +254,13 @@ def create_pdf(text):
                         # Final fallback - skip problematic lines
                         continue
         
-        # Get PDF as bytes
+        # Get PDF as bytes - FPDF2 returns bytes directly when using dest='S'
         pdf_bytes = pdf.output(dest='S')
         if not pdf_bytes:
             raise Exception("PDF generation returned empty data")
         
-        return io.BytesIO(pdf_bytes.encode('latin-1'))
+        # Return the bytes directly without additional encoding
+        return io.BytesIO(pdf_bytes)
     except Exception as e:
         print(f"PDF creation error: {e}")
         # Fallback: create a simple text-based PDF
@@ -271,7 +272,7 @@ def create_pdf(text):
             pdf.cell(0, 10, f"Error: {str(e)}", ln=True)
             pdf.cell(0, 10, "Content could not be exported properly.", ln=True)
             pdf.cell(0, 10, "Please try a different export format.", ln=True)
-            return io.BytesIO(pdf.output(dest='S').encode('latin-1'))
+            return io.BytesIO(pdf.output(dest='S'))
         except Exception as fallback_error:
             print(f"Fallback PDF creation also failed: {fallback_error}")
             # Return a minimal PDF with just an error message
@@ -279,7 +280,7 @@ def create_pdf(text):
             pdf.add_page()
             pdf.set_font("Arial", size=12)
             pdf.cell(0, 10, "PDF Export Failed", ln=True)
-            return io.BytesIO(pdf.output(dest='S').encode('latin-1'))
+            return io.BytesIO(pdf.output(dest='S'))
 
 def create_docx(text):
     doc = Document()
